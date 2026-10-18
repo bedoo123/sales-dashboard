@@ -1,241 +1,256 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 # ---------------------------------------------------------
 # 1. Page Configuration
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Daily Sales & Stock Dashboard (ALL)",
+    page_title="Sales Dashboard",
     page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-st.title("📊 Sales & Stock Dashboard")
+st.title("📊 Sales & Performance Dashboard")
 st.markdown("---")
 
-# Number formatting function (M for Millions, K for Thousands)
-def format_num(val, is_currency=True):
-    suffix = " EGP" if is_currency else ""
-    if abs(val) >= 1_000_000:
-        return f"{val / 1_000_000:,.2f}M{suffix}"
-    elif abs(val) >= 1_000:
-        return f"{val / 1_000:,.1f}K{suffix}"
-    else:
-        return f"{val:,.0f}{suffix}"
-
 # ---------------------------------------------------------
-# 2. File Uploader & Data Loading
+# 2. Data Loading & Cleaning
 # ---------------------------------------------------------
-st.sidebar.header("⚙️ Data Settings")
-uploaded_file = st.sidebar.file_uploader("Upload your Excel Sales file", type=["xlsx", "xls"])
-
 @st.cache_data
 def load_and_clean_data(file):
-    df_raw = pd.read_excel(file)
-    data = df_raw.iloc[3:].copy().reset_index(drop=True)
+    raw_df = pd.read_excel(file, header=None)
+    df = raw_df.iloc[3:].copy()
     
-    col_mapping = {
-        df_raw.columns[0]: "Line",
-        df_raw.columns[1]: "Product_ID",
-        df_raw.columns[2]: "Product_Name",
-        df_raw.columns[3]: "Private_Sales_Q",
-        df_raw.columns[4]: "Private_Sales_V",
-        df_raw.columns[5]: "Private_Target_Q",
-        df_raw.columns[6]: "Private_Target_V",
-        df_raw.columns[7]: "Private_Ach_Pct",
-        df_raw.columns[8]: "IbnSina_Sales_Q",
-        df_raw.columns[9]: "IbnSina_Sales_V",
-        df_raw.columns[10]: "Pharma_Sales_Q",
-        df_raw.columns[11]: "Pharma_Sales_V",
-        df_raw.columns[12]: "Ramco_Sales_Q",
-        df_raw.columns[13]: "Ramco_Sales_V",
-        df_raw.columns[14]: "UCP_Sales_Q",
-        df_raw.columns[15]: "UCP_Sales_V",
-        df_raw.columns[16]: "MEC_Sales_Q",
-        df_raw.columns[17]: "MEC_Sales_V",
-        df_raw.columns[18]: "Sofico_Sales_Q",
-        df_raw.columns[19]: "Sofico_Sales_V",
-        df_raw.columns[20]: "ETC_Sales_Q",
-        df_raw.columns[21]: "ETC_Sales_V",
-        df_raw.columns[42]: "Stock_Days",
-        df_raw.columns[43]: "Stock_Qty_NoBadr",
-        df_raw.columns[44]: "Stock_Val_NoBadr",
-        df_raw.columns[45]: "Total_Stock_Qty",
-        df_raw.columns[58]: "Tender_Sales_Q",
-        df_raw.columns[59]: "Tender_Sales_V",
-        df_raw.columns[60]: "Total_Sales_Q",
-        df_raw.columns[61]: "Total_Sales_V",
-        df_raw.columns[62]: "Total_Target_Q",
-        df_raw.columns[63]: "Total_Target_V",
-        df_raw.columns[64]: "Total_Ach_Pct"
-    }
+    data = pd.DataFrame()
+    data['Cluster'] = df.iloc[:, 0].astype(str).str.strip()
+    data['Product_ID'] = df.iloc[:, 1]
+    data['Product_Name'] = df.iloc[:, 2].astype(str).str.strip()
     
-    data = data.rename(columns=col_mapping)
+    # Private Sales & Target
+    data['Private_Sales_Qty'] = pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
+    data['Private_Sales_Val'] = pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
+    data['Private_Target_Qty'] = pd.to_numeric(df.iloc[:, 5], errors='coerce').fillna(0)
+    data['Private_Target_Val'] = pd.to_numeric(df.iloc[:, 6], errors='coerce').fillna(0)
     
-    data_clean = data[
-        ~data['Line'].astype(str).str.contains("Total", case=False, na=False) &
-        data['Product_Name'].notna()
-    ].copy()
+    # Distributors Sales
+    data['IbnSina_Sales_Val'] = pd.to_numeric(df.iloc[:, 9], errors='coerce').fillna(0)
+    data['Pharma_Sales_Val'] = pd.to_numeric(df.iloc[:, 11], errors='coerce').fillna(0)
+    data['Ramco_Sales_Val'] = pd.to_numeric(df.iloc[:, 13], errors='coerce').fillna(0)
+    data['UCP_Sales_Val'] = pd.to_numeric(df.iloc[:, 15], errors='coerce').fillna(0)
+    data['MEC_Sales_Val'] = pd.to_numeric(df.iloc[:, 17], errors='coerce').fillna(0)
+    data['Sofico_Sales_Val'] = pd.to_numeric(df.iloc[:, 19], errors='coerce').fillna(0)
+    data['ETC_Sales_Val'] = pd.to_numeric(df.iloc[:, 21], errors='coerce').fillna(0)
+    data['Direct_Sales_Val'] = pd.to_numeric(df.iloc[:, 23], errors='coerce').fillna(0)
+    data['Stores_Sales_Val'] = pd.to_numeric(df.iloc[:, 25], errors='coerce').fillna(0)
     
-    for col in data_clean.columns:
-        if col not in ["Line", "Product_ID", "Product_Name"]:
-            data_clean[col] = pd.to_numeric(data_clean[col], errors='coerce').fillna(0)
-            
-    return data_clean, df_raw
+    # Stock
+    data['Stock_Days'] = pd.to_numeric(df.iloc[:, 42], errors='coerce').fillna(0)
+    data['Total_Stock_Qty'] = pd.to_numeric(df.iloc[:, 45], errors='coerce').fillna(0)
+    data['Total_Stock_Val'] = pd.to_numeric(df.iloc[:, 46], errors='coerce').fillna(0)
+    
+    # Tender & Totals
+    data['Tender_Sales_Qty'] = pd.to_numeric(df.iloc[:, 58], errors='coerce').fillna(0)
+    data['Tender_Sales_Val'] = pd.to_numeric(df.iloc[:, 59], errors='coerce').fillna(0)
+    data['Total_Sales_Qty'] = pd.to_numeric(df.iloc[:, 60], errors='coerce').fillna(0)
+    data['Total_Sales_Val'] = pd.to_numeric(df.iloc[:, 61], errors='coerce').fillna(0)
+    data['Total_Target_Qty'] = pd.to_numeric(df.iloc[:, 62], errors='coerce').fillna(0)
+    data['Total_Target_Val'] = pd.to_numeric(df.iloc[:, 63], errors='coerce').fillna(0)
+    
+    data = data[data['Product_Name'].str.lower() != 'nan']
+    return data
+
+# ---------------------------------------------------------
+# 3. Sidebar & Filters
+# ---------------------------------------------------------
+st.sidebar.header("📁 File Upload")
+uploaded_file = st.sidebar.file_uploader("Choose Daily Sales ALL Excel File", type=["xlsx", "xls"])
 
 if uploaded_file is not None:
-    df, df_raw = load_and_clean_data(uploaded_file)
+    df = load_and_clean_data(uploaded_file)
+    
+    st.sidebar.header("🔍 Interactive Filters")
+    selected_clusters = st.sidebar.multiselect("Select Line (Cluster):", options=df['Cluster'].unique(), default=df['Cluster'].unique())
+    filtered_df = df[df['Cluster'].isin(selected_clusters)]
     
     # ---------------------------------------------------------
-    # 3. Sidebar Filters
+    # 4. Executive KPIs Overview
     # ---------------------------------------------------------
-    st.sidebar.subheader("🔍 Filters")
+    st.subheader("🎯 Executive Overview & Target KPIs")
     
-    # Product Line Filter
-    lines = ["All"] + sorted([str(l) for l in df['Line'].dropna().unique()])
-    selected_line = st.sidebar.selectbox("Select Product Line:", lines)
+    total_sales = filtered_df['Total_Sales_Val'].sum()
+    total_target = filtered_df['Total_Target_Val'].sum()
+    total_ach = (total_sales / total_target * 100) if total_target > 0 else 0
+    target_gap = total_target - total_sales
     
-    # Distributor Filter
-    distributor_map = {
-        "All Distributors": "Total_Sales_V",
-        "IBN SINA": "IbnSina_Sales_V",
-        "PHARMA (POS)": "Pharma_Sales_V",
-        "RAMCO": "Ramco_Sales_V",
-        "UCP": "UCP_Sales_V",
-        "MEC": "MEC_Sales_V",
-        "SOFICO": "Sofico_Sales_V",
-        "ETC": "ETC_Sales_V"
-    }
-    selected_distributor = st.sidebar.selectbox("Select Distributor:", list(distributor_map.keys()))
-    sales_col = distributor_map[selected_distributor]
-
-    # Applying Line Filter
-    if selected_line != "All":
-        df_filtered = df[df['Line'] == selected_line].copy()
-    else:
-        df_filtered = df.copy()
-
-    # ---------------------------------------------------------
-    # 4. KPIs Summary Cards
-    # ---------------------------------------------------------
-    tot_sales_v = df_filtered[sales_col].sum()
-    tot_target_v = df_filtered['Total_Target_V'].sum()
-    ach_pct = (tot_sales_v / tot_target_v * 100) if tot_target_v > 0 else 0
+    private_sales = filtered_df['Private_Sales_Val'].sum()
+    tender_sales = filtered_df['Tender_Sales_Val'].sum()
     
-    priv_sales_v = df_filtered['Private_Sales_V'].sum()
-    tender_sales_v = df_filtered['Tender_Sales_V'].sum()
+    active_skus = (filtered_df['Total_Sales_Val'] > 0).sum()
+    total_skus = len(filtered_df)
+    zero_sales_skus = total_skus - active_skus
     
-    stock_val = df_filtered['Stock_Val_NoBadr'].sum()
-    stock_qty = df_filtered['Total_Stock_Qty'].sum()
+    kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
     
-    ibnsina_sales_v = df_filtered['IbnSina_Sales_V'].sum()
-    ibnsina_share = (ibnsina_sales_v / priv_sales_v * 100) if priv_sales_v > 0 else 0
+    kpi1.metric("Total Sales", f"{total_sales/1e6:.2f}M EGP")
+    kpi2.metric("Total Target", f"{total_target/1e6:.2f}M EGP")
+    kpi3.metric("Total Achievement", f"{total_ach:.1f}%")
+    kpi4.metric("Target Gap", f"{target_gap/1e6:.2f}M EGP")
+    kpi5.metric("Private Sales", f"{private_sales/1e6:.2f}M EGP")
+    kpi6.metric("Zero Sales SKUs", f"{zero_sales_skus} / {total_skus}")
     
-    total_skus = len(df_filtered)
-    active_skus = len(df_filtered[df_filtered[sales_col] > 0])
-    zero_sales_skus = len(df_filtered[df_filtered[sales_col] == 0])
-
-    st.subheader(f"🎯 Sales Performance KPIs ({selected_distributor})")
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric(f"Sales ({selected_distributor})", format_num(tot_sales_v))
-    c2.metric("Total Target", format_num(tot_target_v))
-    c3.metric("Achievement %", f"{ach_pct:.2f}%")
-    c4.metric("Private Sales", format_num(priv_sales_v))
-    c5.metric("Tender Sales", format_num(tender_sales_v))
-
-    st.markdown("---")
-    st.subheader("📦 Inventory & Distribution KPIs")
-    k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("Stock Value", format_num(stock_val))
-    k2.metric("Stock Quantity", format_num(stock_qty, is_currency=False))
-    k3.metric("Ibn Sina Share (Private)", f"{ibnsina_share:.1f}%")
-    k4.metric("Active SKUs", f"{active_skus} / {total_skus}")
-    k5.metric("Zero Sales SKUs", f"{zero_sales_skus}", delta=f"-{(zero_sales_skus/total_skus*100):.1f}%", delta_color="inverse")
-
     st.markdown("---")
 
     # ---------------------------------------------------------
-    # 5. Tabs & Visualizations
+    # 5. Visuals 1: Treemap & Radar Chart
     # ---------------------------------------------------------
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📈 Line Performance",
-        "🏆 Top Products",
-        "🤝 Top Product per Distributor",
-        "⚖️ Private & Stock Analysis",
-        "📋 Detailed Data Table"
-    ])
-
-    with tab1:
-        st.subheader(f"Sales ({selected_distributor}) vs Target by Product Line")
-        line_summary = df_filtered.groupby('Line')[[sales_col, 'Total_Target_V']].sum().reset_index()
-        line_summary['Ach_%'] = (line_summary[sales_col] / line_summary['Total_Target_V'] * 100).round(2)
-        line_summary = line_summary.sort_values(by=sales_col, ascending=False)
+    st.subheader("🗺️ Structural Breakdown & Cluster Radar Analysis")
+    col_vis1, col_vis2 = st.columns([3, 2])
+    
+    with col_vis1:
+        fig_tree = px.treemap(
+            filtered_df,
+            path=['Cluster', 'Product_Name'],
+            values='Total_Sales_Val',
+            color='Total_Sales_Val',
+            color_continuous_scale='Blues',
+            title="Sales Treemap Distribution by Cluster & Product"
+        )
+        st.plotly_chart(fig_tree, use_container_width=True)
         
-        fig_line = px.bar(line_summary, x='Line', y=[sales_col, 'Total_Target_V'], barmode='group', title=f"Sales ({selected_distributor}) vs Target per Line")
-        st.plotly_chart(fig_line, use_container_width=True)
-        st.dataframe(line_summary.style.format({sales_col: '{:,.0f}', 'Total_Target_V': '{:,.0f}', 'Ach_%': '{:.2f}%'}), use_container_width=True)
+    with col_vis2:
+        cluster_summary = filtered_df.groupby('Cluster').agg({
+            'Total_Sales_Val': 'sum',
+            'Total_Target_Val': 'sum'
+        }).reset_index()
+        cluster_summary['Ach_Pct'] = (cluster_summary['Total_Sales_Val'] / cluster_summary['Total_Target_Val']) * 100
+        
+        fig_radar = go.Figure(data=go.Scatterpolar(
+            r=cluster_summary['Ach_Pct'],
+            theta=cluster_summary['Cluster'],
+            fill='toself',
+            name='Achievement %',
+            line_color='#2ecc71'
+        ))
+        fig_radar.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[0, max(cluster_summary['Ach_Pct'].max(), 100)])),
+            title="Cluster Achievement % Radar Chart",
+            showlegend=False
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
 
-    with tab2:
-        col_top, col_zero = st.columns(2)
-        with col_top:
-            st.subheader(f"🏆 Top 10 Best-Selling Products ({selected_distributor})")
-            top_products = df_filtered.nlargest(10, sales_col)[['Product_Name', 'Line', sales_col]]
-            fig_top = px.bar(top_products, x=sales_col, y='Product_Name', orientation='h', color='Line', title=f"Top Products by Value ({selected_distributor})")
-            fig_top.update_layout(yaxis={'categoryorder': 'total ascending'})
-            st.plotly_chart(fig_top, use_container_width=True)
-            
-        with col_zero:
-            st.subheader(f"⚠️ Zero Sales Products ({selected_distributor})")
-            low_p = df_filtered[(df_filtered[sales_col] == 0) & (df_filtered['Total_Target_V'] > 0)]
-            st.dataframe(low_p[['Product_Name', 'Line', 'Total_Target_V', 'Total_Stock_Qty']], use_container_width=True)
+    st.markdown("---")
 
-    with tab3:
-        st.subheader("🤝 Top Product per Distributor Overview")
+    # ---------------------------------------------------------
+    # 6. Visuals 2: Private vs Tender & Distributor Breakdown
+    # ---------------------------------------------------------
+    st.subheader("🏢 Private vs Tender Sales & Distributor Share")
+    col_vis3, col_vis4 = st.columns(2)
+    
+    with col_vis3:
+        cluster_pt = filtered_df.groupby('Cluster').agg({
+            'Private_Sales_Val': 'sum',
+            'Tender_Sales_Val': 'sum'
+        }).reset_index()
+        
+        fig_pt = px.bar(
+            cluster_pt,
+            x='Cluster',
+            y=['Private_Sales_Val', 'Tender_Sales_Val'],
+            title="Private vs Tender Sales per Cluster",
+            barmode='stack',
+            labels={'value': 'Value (EGP)', 'variable': 'Sector'},
+            color_discrete_map={'Private_Sales_Val': '#3498db', 'Tender_Sales_Val': '#f39c12'}
+        )
+        st.plotly_chart(fig_pt, use_container_width=True)
+        
+    with col_vis4:
         dist_cols = {
-            "IBN SINA": "IbnSina_Sales_V",
-            "PHARMA (POS)": "Pharma_Sales_V",
-            "RAMCO": "Ramco_Sales_V",
-            "UCP": "UCP_Sales_V",
-            "MEC": "MEC_Sales_V",
-            "SOFICO": "Sofico_Sales_V",
-            "ETC": "ETC_Sales_V"
+            'Ibn Sina': filtered_df['IbnSina_Sales_Val'].sum(),
+            'Pharma': filtered_df['Pharma_Sales_Val'].sum(),
+            'Ramco': filtered_df['Ramco_Sales_Val'].sum(),
+            'UCP': filtered_df['UCP_Sales_Val'].sum(),
+            'MEC': filtered_df['MEC_Sales_Val'].sum(),
+            'Sofico': filtered_df['Sofico_Sales_Val'].sum(),
+            'ETC': filtered_df['ETC_Sales_Val'].sum(),
+            'Direct': filtered_df['Direct_Sales_Val'].sum(),
+            'Stores': filtered_df['Stores_Sales_Val'].sum()
         }
+        dist_df = pd.DataFrame(list(dist_cols.items()), columns=['Distributor', 'Sales_Value'])
+        dist_df = dist_df[dist_df['Sales_Value'] > 0]
         
-        dist_top_list = []
-        for d_name, d_col in dist_cols.items():
-            if d_col in df.columns:
-                top_row = df_filtered.loc[df_filtered[d_col].idxmax()] if not df_filtered.empty and df_filtered[d_col].max() > 0 else None
-                if top_row is not None:
-                    dist_top_list.append({
-                        "Distributor": d_name,
-                        "Top Product": top_row['Product_Name'],
-                        "Product Line": top_row['Line'],
-                        "Sales Value (EGP)": top_row[d_col]
-                    })
+        fig_donut = px.pie(
+            dist_df,
+            names='Distributor',
+            values='Sales_Value',
+            title="Distributor Private Sales Market Share",
+            hole=0.4,
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        st.plotly_chart(fig_donut, use_container_width=True)
+
+    st.markdown("---")
+
+    # ---------------------------------------------------------
+    # 7. Visuals 3: Top Products & Stock Days Analysis
+    # ---------------------------------------------------------
+    st.subheader("🏆 Top Performing Products & Stock Days Analysis")
+    col_vis5, col_vis6 = st.columns(2)
+    
+    with col_vis5:
+        top_10 = filtered_df.nlargest(10, 'Total_Sales_Val')
+        fig_top = px.bar(
+            top_10,
+            x='Total_Sales_Val',
+            y='Product_Name',
+            orientation='h',
+            title="Top 10 Products by Sales Value",
+            color='Total_Sales_Val',
+            color_continuous_scale='Teal'
+        )
+        fig_top.update_layout(yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(fig_top, use_container_width=True)
         
-        if dist_top_list:
-            dist_top_df = pd.DataFrame(dist_top_list)
-            st.dataframe(dist_top_df.style.format({'Sales Value (EGP)': '{:,.2f}'}), use_container_width=True)
+    with col_vis6:
+        stock_cluster = filtered_df.groupby('Cluster').agg({
+            'Stock_Days': 'mean',
+            'Total_Stock_Val': 'sum'
+        }).reset_index()
+        
+        fig_stock = px.scatter(
+            stock_cluster,
+            x='Total_Stock_Val',
+            y='Stock_Days',
+            size='Total_Stock_Val',
+            color='Cluster',
+            text='Cluster',
+            title="Average Stock Cover Days vs Total Stock Value",
+            labels={'Total_Stock_Val': 'Total Stock Value', 'Stock_Days': 'Average Stock Days'}
+        )
+        st.plotly_chart(fig_stock, use_container_width=True)
 
-    with tab4:
-        col_pie1, col_pie2 = st.columns(2)
-        with col_pie1:
-            sales_split = pd.DataFrame({'Category': ['Private Sales', 'Tender Sales'], 'Value': [priv_sales_v, tender_sales_v]})
-            fig_pie = px.pie(sales_split, names='Category', values='Value', title="Private vs Tender Sales Split", hole=0.4)
-            st.plotly_chart(fig_pie, use_container_width=True)
-        with col_pie2:
-            top_stock = df_filtered.nlargest(10, 'Total_Stock_Qty')[['Product_Name', 'Line', 'Total_Stock_Qty']]
-            fig_stock = px.bar(top_stock, x='Total_Stock_Qty', y='Product_Name', orientation='h', color='Line', title="Top 10 Stock Quantities")
-            fig_stock.update_layout(yaxis={'categoryorder': 'total ascending'})
-            st.plotly_chart(fig_stock, use_container_width=True)
+    st.markdown("---")
 
-    with tab5:
-        st.subheader("View & Export Filtered Data")
-        st.dataframe(df_filtered, use_container_width=True)
-        csv = df_filtered.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 Download Filtered Data (CSV)", data=csv, file_name="Filtered_Daily_Sales.csv", mime="text/csv")
+    # ---------------------------------------------------------
+    # 8. Detailed Data Table
+    # ---------------------------------------------------------
+    st.subheader("📋 Detailed Data Table")
+    
+    search_term = st.text_input("🔎 Search Product Name:")
+    if search_term:
+        display_df = filtered_df[filtered_df['Product_Name'].str.contains(search_term, case=False, na=False)]
+    else:
+        display_df = filtered_df
+        
+    st.dataframe(
+        display_df[[
+            'Cluster', 'Product_ID', 'Product_Name', 
+            'Total_Sales_Qty', 'Total_Sales_Val', 
+            'Total_Target_Val', 'Total_Stock_Qty', 'Stock_Days'
+        ]].sort_values(by='Total_Sales_Val', ascending=False),
+        use_container_width=True
+    )
 
 else:
-    st.info("👈 Please upload your Excel sales file from the sidebar to launch the Dashboard.")
+    st.info("👋 Please upload your Daily Sales ALL Excel file from the sidebar to view the updated dashboard.")
