@@ -27,7 +27,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. User Authentication System
+# 2. User Authentication System (Updated USERS)
 # ---------------------------------------------------------
 USERS = {
     "admin": {"password": "admin1231", "role": "admin", "line": "All"},
