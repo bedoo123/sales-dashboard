@@ -89,8 +89,8 @@ else:
             return f"{val:,.0f} EGP"
 
     @st.cache_data
-    def load_and_clean_data(file):
-        raw_df = pd.read_excel(file, header=None)
+    def load_and_clean_data(file_path):
+        raw_df = pd.read_excel(file_path, header=None)
         df = raw_df.iloc[3:].copy()
         
         data = pd.DataFrame()
@@ -131,18 +131,28 @@ else:
 
     st.sidebar.header("📁 Control Panel")
     
+    # تحديد مسار حفظ الملف المشترك محلياً
+    saved_file_path = "shared_daily_sales.xlsx"
+
     if st.session_state.role == "admin":
         uploaded_file = st.sidebar.file_uploader("Upload Excel File (Admin Only)", type=["xlsx", "xls"])
         if uploaded_file is not None:
-            st.session_state['uploaded_file'] = uploaded_file
+            # حفظ الملف محلياً ليراه جميع المستخدمين حتى بعد تسجيل الخروج
+            with open(saved_file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.sidebar.success("تم رفع وحفظ الشيت بنجاح!")
     else:
-        st.sidebar.info("👤 Line User Access")
-        uploaded_file = st.session_state.get('uploaded_file', None)
-        if uploaded_file is None and os.path.exists("Daily Sales 15-10-2026- ALL.xlsx"):
-            uploaded_file = "Daily Sales 15-10-2026- ALL.xlsx"
+        st.sidebar.info(f"👤 Line User: {st.session_state.assigned_line}")
 
-    if uploaded_file is not None:
-        df = load_and_clean_data(uploaded_file)
+    # التحقق من وجود الملف المحلي (سواء تم رفعه بواسطة الأدمن أو موجود مسبقاً)
+    target_file = None
+    if os.path.exists(saved_file_path):
+        target_file = saved_file_path
+    elif os.path.exists("Daily Sales 15-10-2026- ALL.xlsx"):
+        target_file = "Daily Sales 15-10-2026- ALL.xlsx"
+
+    if target_file is not None:
+        df = load_and_clean_data(target_file)
         
         if st.session_state.role == "admin":
             st.sidebar.subheader("Filter Options (Admin)")
@@ -158,7 +168,7 @@ else:
             st.sidebar.warning(f"Viewing Line: {assigned_line}")
 
         if filtered_df.empty:
-            st.warning("⚠️ No data available for the selected filters or invalid file uploaded.")
+            st.warning("⚠️ لا توجد بيانات مطابقة للخط الخاص بك في هذا الشيت. تأكد من تطابق اسم الخط (Cluster) مع اسم المستخدم.")
         else:
             st.subheader("📌 Performance Summary")
             
@@ -386,4 +396,4 @@ else:
                 use_container_width=True
             )
     else:
-        st.info("👋 Please upload your `Daily Sales ALL.xlsx` file from the sidebar to view the dashboard.")
+        st.info("👋 يُرجى من الأدمن رفع ملف الشيت أولاً من لوحة التحكم ليتمكن باقي المستخدمين من استعراض البيانات.")
