@@ -29,6 +29,18 @@ st.title("📊 Sales & Distribution Dashboard")
 st.markdown("---")
 
 # ---------------------------------------------------------
+# Helper Function for Smart Currency/Number Formatting
+# ---------------------------------------------------------
+def format_currency(val):
+    """Smartly formats numbers to be clean and readable."""
+    if abs(val) >= 1_000_000:
+        return f"{val / 1_000_000:.2f}M EGP"
+    elif abs(val) >= 1_000:
+        return f"{val:,.0f} EGP"
+    else:
+        return f"{val:,.0f} EGP"
+
+# ---------------------------------------------------------
 # 2. Data Processing Function
 # ---------------------------------------------------------
 @st.cache_data
@@ -110,19 +122,75 @@ if uploaded_file is not None:
         private_sales = filtered_df['Private_Sales_Val'].sum()
         tender_sales = filtered_df['Tender_Sales_Val'].sum()
         
-        k1, k2, k3, k4, k5 = st.columns(5)
-        k1.metric("Total Sales", f"{total_sales/1e6:.2f}M EGP")
-        k2.metric("Target", f"{total_target/1e6:.2f}M EGP")
+        # Zero target products count
+        zero_target_count = (filtered_df['Total_Target_Val'] == 0).sum()
+        total_products_count = len(filtered_df)
+        
+        k1, k2, k3, k4, k5, k6 = st.columns(6)
+        k1.metric("Total Sales", format_currency(total_sales))
+        k2.metric("Target", format_currency(total_target))
         k3.metric("Achievement %", f"{total_ach:.1f}%")
-        k4.metric("Private Sales", f"{private_sales/1e6:.2f}M EGP")
-        k5.metric("Tender Sales", f"{tender_sales/1e6:.2f}M EGP")
+        k4.metric("Private Sales", format_currency(private_sales))
+        k5.metric("Tender Sales", format_currency(tender_sales))
+        k6.metric("Zero Target SKUs", f"{zero_target_count} / {total_products_count}")
         
         # Progress gauge bar
         st.progress(min(max(int(total_ach), 0), 100), text=f"Overall Target Achievement: {total_ach:.1f}%")
         st.markdown("---")
 
         # ---------------------------------------------------------
-        # 5. Top Product Per Distributor Section
+        # 5. NEW: Products Without Target Section
+        # ---------------------------------------------------------
+        st.subheader("⚠️ Products Without Target (Zero Target Analysis)")
+        
+        no_target_df = filtered_df[filtered_df['Total_Target_Val'] == 0]
+        
+        if not no_target_df.empty:
+            no_target_with_sales = no_target_df[no_target_df['Total_Sales_Val'] > 0]
+            no_target_no_sales = no_target_df[no_target_df['Total_Sales_Val'] == 0]
+            
+            nt_col1, nt_col2 = st.columns(2)
+            
+            with nt_col1:
+                st.markdown(f"##### 🟢 No Target BUT Has Sales ({len(no_target_with_sales)} SKUs)")
+                st.caption("منتجات ملهاش تارجت بس حققت مبيعات فعلياً:")
+                if not no_target_with_sales.empty:
+                    fig_nt_sales = px.bar(
+                        no_target_with_sales.nlargest(10, 'Total_Sales_Val'),
+                        x='Total_Sales_Val',
+                        y='Product_Name',
+                        orientation='h',
+                        title="Top 10 Zero-Target Products by Sales",
+                        text_auto=',.0f',
+                        color_discrete_sequence=['#2ecc71']
+                    )
+                    fig_nt_sales.update_layout(yaxis={'categoryorder':'total ascending'})
+                    st.plotly_chart(fig_nt_sales, use_container_width=True)
+                else:
+                    st.info("لا توجد مبيعات لأي منتج بدون تارجت.")
+
+            with nt_col2:
+                st.markdown(f"##### 🔴 No Target AND No Sales ({len(no_target_no_sales)} SKUs)")
+                st.caption("منتجات ملهاش تارجت وماحققتش أي مبيعات:")
+                st.dataframe(
+                    no_target_no_sales[['Cluster', 'Product_Name', 'Total_Stock_Qty', 'Stock_Days']],
+                    use_container_width=True,
+                    height=300
+                )
+
+            # Option to view/expand all zero target products
+            with st.expander("📄 View All Products Without Target (اضغط لعرض كافة المنتجات التي بدون تارجت)"):
+                st.dataframe(
+                    no_target_df[['Cluster', 'Product_ID', 'Product_Name', 'Total_Sales_Val', 'Total_Stock_Qty', 'Stock_Days']].sort_values(by='Total_Sales_Val', ascending=False),
+                    use_container_width=True
+                )
+        else:
+            st.success("🎉 جميع المنتجات المحددة لها تارجت مُسجل!")
+
+        st.markdown("---")
+
+        # ---------------------------------------------------------
+        # 6. Top Product Per Distributor Section
         # ---------------------------------------------------------
         st.subheader("🌟 Top Product for Each Distributor")
         
@@ -188,7 +256,7 @@ if uploaded_file is not None:
         st.markdown("---")
 
         # ---------------------------------------------------------
-        # 6. Cluster Performance & Distributor Breakdown
+        # 7. Cluster Performance & Distributor Breakdown
         # ---------------------------------------------------------
         st.subheader("📈 Cluster Performance & Market Share")
         c1, c2 = st.columns(2)
@@ -228,13 +296,17 @@ if uploaded_file is not None:
                     hole=0.4,
                     color_discrete_sequence=px.colors.qualitative.Set2
                 )
-                fig_dist_pie.update_traces(textinfo='percent+label')
+                fig_dist_pie.update_traces(
+                    textinfo='percent+label',
+                    texttemplate='%{label}<br>%{percent:.1%}',
+                    insidetextorientation='radial'
+                )
                 st.plotly_chart(fig_dist_pie, use_container_width=True)
 
         st.markdown("---")
 
         # ---------------------------------------------------------
-        # 7. Overall Top & Bottom Performing Products
+        # 8. Overall Top & Bottom Performing Products
         # ---------------------------------------------------------
         st.subheader("🏆 Overall Top & Bottom Performing Products")
         p1, p2 = st.columns(2)
@@ -272,7 +344,7 @@ if uploaded_file is not None:
         st.markdown("---")
 
         # ---------------------------------------------------------
-        # 8. Detailed Data Table
+        # 9. Detailed Data Table
         # ---------------------------------------------------------
         st.subheader("📋 Product Sales Summary Table")
         
