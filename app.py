@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("📊 Comprehensive Sales & Stock Dashboard")
+st.title("📊 Sales & Stock Dashboard")
 st.markdown("---")
 
 # Number formatting function (M for Millions, K for Thousands)
