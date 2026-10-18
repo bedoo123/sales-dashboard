@@ -417,6 +417,5 @@ else:
                 ]].sort_values(by='Total_Sales_Val', ascending=False),
                 use_container_width=True
             )
-
 else:
     st.info("👋 Please upload your `Daily Sales ALL.xlsx` file from the sidebar to view the dashboard.")
