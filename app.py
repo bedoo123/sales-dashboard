@@ -4,9 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 
-# ---------------------------------------------------------
-# 1. Page Setup & Theme Handling
-# ---------------------------------------------------------
 st.set_page_config(
     page_title="Sales & Distribution Dashboard",
     page_icon="📊",
@@ -25,9 +22,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# 2. User Authentication System with Updated Users
-# ---------------------------------------------------------
+# قائمة المستخدمين والصلاحيات
 USERS = {
     "admin": {"password": "admin1231", "role": "admin", "line": "All"},
     "mash_chc1": {"password": "123", "role": "user", "line": "Mash CHC 1"},
@@ -61,10 +56,8 @@ def login_page():
     with col2:
         st.markdown("<h2 style='text-align: center;'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
-        
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        
         if st.button("Login", use_container_width=True):
             if username in USERS and USERS[username]["password"] == password:
                 st.session_state.logged_in = True
@@ -392,5 +385,5 @@ else:
                 ]].sort_values(by='Total_Sales_Val', ascending=False),
                 use_container_width=True
             )
-else:
-    st.info("👋 Please upload your `Daily Sales ALL.xlsx` file from the sidebar to view the dashboard.")
+    else:
+        st.info("👋 Please upload your `Daily Sales ALL.xlsx` file from the sidebar to view the dashboard.")
