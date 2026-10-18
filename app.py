@@ -13,7 +13,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Responsive styling compatible with Dark & Light Mode
 st.markdown("""
     <style>
     div[data-testid="stMetric"] {
@@ -27,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. User Authentication System (Updated USERS)
+# 2. User Authentication System with Updated Users
 # ---------------------------------------------------------
 USERS = {
     "admin": {"password": "admin1231", "role": "admin", "line": "All"},
@@ -80,7 +79,6 @@ def login_page():
 if not st.session_state.logged_in:
     login_page()
 else:
-    # Sidebar User Info & Logout
     st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
@@ -89,7 +87,6 @@ else:
     st.title("📊 Sales & Distribution Executive Dashboard")
     st.markdown("---")
 
-    # Helper function for smart number formatting
     def format_currency(val):
         if abs(val) >= 1_000_000:
             return f"{val / 1_000_000:.2f}M EGP"
@@ -139,9 +136,6 @@ else:
         
         return data
 
-    # ---------------------------------------------------------
-    # 3. Sidebar Control & Access Management
-    # ---------------------------------------------------------
     st.sidebar.header("📁 Control Panel")
     
     if st.session_state.role == "admin":
@@ -173,9 +167,6 @@ else:
         if filtered_df.empty:
             st.warning("⚠️ No data available for the selected filters or invalid file uploaded.")
         else:
-            # ---------------------------------------------------------
-            # 4. Top Executive Metrics (KPIs)
-            # ---------------------------------------------------------
             st.subheader("📌 Performance Summary")
             
             total_sales = filtered_df['Total_Sales_Val'].sum()
@@ -198,9 +189,6 @@ else:
             st.progress(min(max(int(total_ach), 0), 100), text=f"Overall Target Achievement: {total_ach:.1f}%")
             st.markdown("---")
 
-            # ---------------------------------------------------------
-            # 5. Zero Target Products Analysis
-            # ---------------------------------------------------------
             st.subheader("⚠️ Products Without Target (Zero Target Analysis)")
             no_target_df = filtered_df[filtered_df['Total_Target_Val'] == 0]
             
@@ -245,9 +233,6 @@ else:
 
             st.markdown("---")
 
-            # ---------------------------------------------------------
-            # 6. Top Product Per Distributor Section
-            # ---------------------------------------------------------
             st.subheader("🌟 Top Product for Each Distributor")
             
             dist_names = ['Ibn Sina', 'Pharma', 'Ramco', 'UCP', 'MEC', 'Sofico', 'ETC', 'Direct', 'Stores']
@@ -311,9 +296,6 @@ else:
 
             st.markdown("---")
 
-            # ---------------------------------------------------------
-            # 7. Cluster Performance & Distributor Breakdown
-            # ---------------------------------------------------------
             st.subheader("📈 Cluster Performance & Market Share")
             c1, c2 = st.columns(2)
             
@@ -361,9 +343,6 @@ else:
 
             st.markdown("---")
 
-            # ---------------------------------------------------------
-            # 8. Overall Top & Bottom Performing Products
-            # ---------------------------------------------------------
             st.subheader("🏆 Overall Top & Bottom Performing Products")
             p1, p2 = st.columns(2)
             
@@ -399,11 +378,7 @@ else:
 
             st.markdown("---")
 
-            # ---------------------------------------------------------
-            # 9. Detailed Data Table
-            # ---------------------------------------------------------
             st.subheader("📋 Product Sales Summary Table")
-            
             search_q = st.text_input("🔍 Search product name:")
             if search_q:
                 table_df = filtered_df[filtered_df['Product_Name'].str.contains(search_q, case=False, na=False)]
@@ -417,5 +392,6 @@ else:
                 ]].sort_values(by='Total_Sales_Val', ascending=False),
                 use_container_width=True
             )
+
 else:
     st.info("👋 Please upload your `Daily Sales ALL.xlsx` file from the sidebar to view the dashboard.")
