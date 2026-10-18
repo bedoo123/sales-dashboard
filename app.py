@@ -24,7 +24,7 @@ st.markdown("""
 
 # قائمة المستخدمين والصلاحيات
 USERS = {
-    "admin": {"password": "admin1231", "role": "admin", "line": "All"},
+    "admin": {"password": "admin", "role": "admin", "line": "All"},
     "mash_chc1": {"password": "123", "role": "user", "line": "Mash CHC 1"},
     "mash_chc2": {"password": "123", "role": "user", "line": "Mash CHC 2"},
     "mash_cns1": {"password": "123", "role": "user", "line": "Mash CNS 1"},
