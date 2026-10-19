@@ -113,7 +113,7 @@ else:
 
     def load_and_clean_data(file_path):
         raw_df = pd.read_excel(file_path, header=None)
-        df = raw_df.iloc[3:].copy()
+        df = raw_df.iloc[4:].copy() # البيانات تبدأ من الصف الرابع بناءً على الفورمات الجديد
         
         data = pd.DataFrame()
         data['Cluster'] = df.iloc[:, 0].astype(str).str.strip()
@@ -168,8 +168,8 @@ else:
     target_file = None
     if os.path.exists(saved_file_path):
         target_file = saved_file_path
-    elif os.path.exists("Daily Sales 15-10-2026- ALL.xlsx"):
-        target_file = "Daily Sales 15-10-2026- ALL.xlsx"
+    elif os.path.exists("Daily Sales 19-10-2026- Mash GIT 1.xlsx"):
+        target_file = "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
 
     if target_file is not None:
         df = load_and_clean_data(target_file)
@@ -201,8 +201,8 @@ else:
                 st.sidebar.markdown("---")
                 buffer = io.BytesIO()
                 raw_full_df = pd.read_excel(target_file, header=None)
-                header_rows = raw_full_df.iloc[:3].copy()
-                data_rows = raw_full_df.iloc[3:].copy()
+                header_rows = raw_full_df.iloc[:4].copy() # أول 4 صفوف ترويسة
+                data_rows = raw_full_df.iloc[4:].copy()
                 line_data_rows = data_rows[data_rows.iloc[:, 0].astype(str).str.strip() == assigned_line].copy()
                 
                 # حساب نسبة الـ Ach تلقائياً (Private Ach Value في العمود رقم 7)
@@ -212,7 +212,7 @@ else:
                     ach_val = sales_val / target_val
                     ach_val[target_val == 0] = 0
                     line_data_rows.iloc[:, 7] = ach_val
-                
+
                 final_export_df = pd.concat([header_rows, line_data_rows], ignore_index=True)
                 
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
@@ -220,7 +220,7 @@ else:
                 buffer.seek(0)
                 
                 st.sidebar.download_button(
-                    label=f"📥 تحميل شيت  {assigned_line}",
+                    label=f"📥 تحميل شيت خط {assigned_line} بنفس الفورمات",
                     data=buffer,
                     file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
