@@ -13,24 +13,12 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    div[data-testid="stSidebarNav"] {display: none;}
-    
     div[data-testid="stMetric"] {
         background-color: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         padding: 15px;
         border-radius: 10px;
         border-left: 5px solid #007bff;
-    }
-    
-    .stButton>button {
-        border-radius: 8px;
-        font-weight: bold;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        border-color: #007bff;
-        color: #007bff;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -70,19 +58,32 @@ def login_page():
         st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
         
         with st.form("login_form"):
+            # بطاقة تسجيل الدخول بخلفية وإطار متناسق
+            st.markdown('''
+                <div style="
+                    background: linear-gradient(135deg, #1a1a24 0%, #111118 100%);
+                    padding: 30px 25px;
+                    border-radius: 16px;
+                    border: 1px solid rgba(211, 84, 0, 0.3);
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+                    text-align: center;
+                ">
+            ''', unsafe_allow_html=True)
+            
             if os.path.exists("logo.png"):
                 c1, c2, c3 = st.columns([1, 1.2, 1])
                 with c2:
-                    st.image("logo.png", width=110)
+                    st.image("logo.png", width=75)
             
-            st.markdown("<h3 style='text-align: center; color: #ffffff; margin-bottom: 0px;'>Welcome Back</h3>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #a0a0a0; font-size: 13px;'>Sales & Distribution Executive Dashboard</p>", unsafe_allow_html=True)
-            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color: #ffffff; font-size: 20px; margin-top: 10px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #a0a0a0; font-size: 13px; margin-bottom: 20px;'>Sales & Distribution Executive Dashboard</p>", unsafe_allow_html=True)
             
             username = st.text_input("👤 Username", placeholder="Enter your username")
             password = st.text_input("🔑 Password", type="password", placeholder="Enter your password")
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             submit = st.form_submit_button("Sign In", use_container_width=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
             
             if submit:
                 if username in USERS and USERS[username]["password"] == password:
@@ -100,13 +101,9 @@ if not st.session_state.logged_in:
 else:
     # Sidebar Logo & User Info
     if os.path.exists("logo.png"):
-        sb_c1, sb_c2, sb_c3 = st.sidebar.columns([1, 2, 1])
-        with sb_c2:
-            st.sidebar.image("logo.png", width=120)
-            
-    st.sidebar.markdown("<br>", unsafe_allow_html=True)
+        st.sidebar.image("logo.png", width=140)
     st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
-    if st.sidebar.button("Logout", use_container_width=True):
+    if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
         st.rerun()
 
