@@ -69,7 +69,7 @@ def login_page():
                 ">
                     <h2 style='color: #ffffff; text-align: center; font-size: 22px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h2>
                     <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Sales & Distribution Executive Dashboard</p>
-                    <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>ةMade by Commercial Excellence</p>
+                    <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Made by Commercial Excellence</p>
             ''', unsafe_allow_html=True)
             
             username = st.text_input("👤 Username", placeholder="Enter your username")
