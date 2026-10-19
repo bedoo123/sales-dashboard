@@ -43,7 +43,8 @@ USERS = {
     "oxa": {"password": "123", "role": "user", "line": "Mash Oxaleptal-Atten"},
     "derma": {"password": "123", "role": "user", "line": "Mash DERMA"},
     "primary1": {"password": "123", "role": "user", "line": "Mash Primary Care-1"},
-    "primary2": {"password": "123", "role": "user", "line": "Mash Primary Care -2"}
+    "primary2": {"password": "123", "role": "user", "line": "Mash Primary Care -2"},
+    "medical": {"password": "123", "role": "user", "line": "Mash Medical Line -N"}
 }
 
 if "logged_in" not in st.session_state:
