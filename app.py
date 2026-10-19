@@ -20,6 +20,12 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #007bff;
     }
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -58,11 +64,12 @@ def login_page():
         if os.path.exists("logo.png"):
             img_c1, img_c2, img_c3 = st.columns([1, 1, 1])
             with img_c2:
-                st.image("logo.png", width=150)
-        st.markdown("<h2 style='text-align: center;'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+                st.image("logo.png", width=140)
+        st.markdown("<h3 style='text-align: center; margin-top: 10px; margin-bottom: 25px;'>🔐 Login to Sales Dashboard</h3>", unsafe_allow_html=True)
+        
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
+        st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
         if st.button("Login", use_container_width=True):
             if username in USERS and USERS[username]["password"] == password:
                 st.session_state.logged_in = True
@@ -77,9 +84,13 @@ def login_page():
 if not st.session_state.logged_in:
     login_page()
 else:
-    # عرض الشعار في الشريط الجانبي بعد تسجيل الدخول[cite: 8, 10]
+    # Sidebar Logo & User Info aligned properly
     if os.path.exists("logo.png"):
-        st.sidebar.image("logo.png", width=140)
+        sb_c1, sb_c2, sb_c3 = st.sidebar.columns([1, 2, 1])
+        with sb_c2:
+            st.sidebar.image("logo.png", width=110)
+    
+    st.sidebar.markdown("<br>", unsafe_allow_html=True)
     st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
