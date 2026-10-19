@@ -56,7 +56,9 @@ def login_page():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=160)
+            img_c1, img_c2, img_c3 = st.columns([1, 1, 1])
+            with img_c2:
+                st.image("logo.png", width=150)
         st.markdown("<h2 style='text-align: center;'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         username = st.text_input("Username")
@@ -75,7 +77,7 @@ def login_page():
 if not st.session_state.logged_in:
     login_page()
 else:
-    # عرض الشعار في الشريط الجانبي بعد تسجيل الدخول[cite: 10]
+    # عرض الشعار في الشريط الجانبي بعد تسجيل الدخول[cite: 8, 10]
     if os.path.exists("logo.png"):
         st.sidebar.image("logo.png", width=140)
     st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
@@ -416,12 +418,15 @@ else:
             else:
                 table_dir = filtered_df
 
-            st.dataframe(
-                table_dir[[
-                    'Cluster', 'Product_Name', 'Total_Sales_Val', 
-                    'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days'
-                ]].sort_values(by='Total_Sales_Val', ascending=False),
-                use_container_width=True
-            )
+            disp_df = table_dir[[
+                'Cluster', 'Product_Name', 'Total_Sales_Val', 
+                'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days'
+            ]].copy().sort_values(by='Total_Sales_Val', ascending=False)
+            
+            for col in ['Total_Sales_Val', 'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days']:
+                if col in disp_df.columns:
+                    disp_df[col] = disp_df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else "0.00")
+
+            st.dataframe(disp_df, use_container_width=True)
     else:
         st.info("👋 يُرجى من الأدمن رفع ملف الشيت أولاً من لوحة التحكم ليتمكن باقي المستخدمين من استعراض البيانات.")
