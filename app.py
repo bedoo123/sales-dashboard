@@ -20,12 +20,6 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #007bff;
     }
-    .logo-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-bottom: 10px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -59,38 +53,54 @@ if "logged_in" not in st.session_state:
     st.session_state.assigned_line = ""
 
 def login_page():
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        if os.path.exists("logo.png"):
-            img_c1, img_c2, img_c3 = st.columns([1, 1, 1])
-            with img_c2:
-                st.image("logo.png", width=140)
-        st.markdown("<h3 style='text-align: center; margin-top: 10px; margin-bottom: 25px;'>🔐 Login to Sales Dashboard</h3>", unsafe_allow_html=True)
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        # Using a container with custom CSS styling for the login card
+        st.markdown("""
+            <div style="
+                background-color: rgba(255, 255, 255, 0.03);
+                padding: 30px;
+                border-radius: 15px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                text-align: center;
+            ">
+        """, unsafe_allow_html=True)
         
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-        if st.button("Login", use_container_width=True):
-            if username in USERS and USERS[username]["password"] == password:
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.session_state.role = USERS[username]["role"]
-                st.session_state.assigned_line = USERS[username]["line"]
-                st.success("Logged in successfully!")
-                st.rerun()
-            else:
-                st.error("Invalid username or password.")
+        if os.path.exists("logo.png"):
+            # Center the image perfectly using columns inside the card
+            img_c1, img_c2, img_c3 = st.columns([1, 1.2, 1])
+            with img_c2:
+                st.image("logo.png", width=130)
+                
+        st.markdown("<h3 style='color: #ffffff; margin-top: 15px; margin-bottom: 25px;'>🔐 Login to Sales Dashboard</h3>", unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+            submit = st.form_submit_button("Login", use_container_width=True)
+            
+            if submit:
+                if username in USERS and USERS[username]["password"] == password:
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+                    st.session_state.role = USERS[username]["role"]
+                    st.session_state.assigned_line = USERS[username]["line"]
+                    st.success("Logged in successfully!")
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password.")
+                    
+        st.markdown("</div>", unsafe_allow_html=True)
 
 if not st.session_state.logged_in:
     login_page()
 else:
-    # Sidebar Logo & User Info aligned properly
+    # Sidebar Logo & User Info
     if os.path.exists("logo.png"):
-        sb_c1, sb_c2, sb_c3 = st.sidebar.columns([1, 2, 1])
-        with sb_c2:
-            st.sidebar.image("logo.png", width=110)
-    
-    st.sidebar.markdown("<br>", unsafe_allow_html=True)
+        st.sidebar.image("logo.png", width=140)
     st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
