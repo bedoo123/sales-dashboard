@@ -45,7 +45,6 @@ USERS = {
     "primary1": {"password": "123", "role": "user", "line": "Mash Primary Care-1"},
     "primary2": {"password": "123", "role": "user", "line": "Mash Primary Care -2"},
     "medical": {"password": "123", "role": "user", "line": "Mash Medical Line -N"}
-
 }
 
 if "logged_in" not in st.session_state:
@@ -70,6 +69,7 @@ def login_page():
                 ">
                     <h2 style='color: #ffffff; text-align: center; font-size: 22px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h2>
                     <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Sales & Distribution Executive Dashboard</p>
+                    <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>ةMade by Commercial Excellence</p>
             ''', unsafe_allow_html=True)
             
             username = st.text_input("👤 Username", placeholder="Enter your username")
@@ -102,6 +102,17 @@ else:
         st.rerun()
 
     st.title("📊 Sales & Distribution Executive Dashboard")
+    
+    # استخراج وعرض تاريخ الشيت المرفوع تلقائياً فى الصفحة الرئيسية أيضاً
+    try:
+        target_file_chk = "shared_daily_sales.xlsx" if os.path.exists("shared_daily_sales.xlsx") else "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
+        raw_meta = pd.read_excel(target_file_chk, header=None)
+        sheet_date = raw_meta.iloc[1, 2]
+        if pd.notna(sheet_date):
+            st.markdown(f"📅 **تاريخ الشيت المرفوع:** `{sheet_date}`")
+    except Exception:
+        pass
+        
     st.markdown("---")
 
     def format_currency(val):
@@ -155,6 +166,17 @@ else:
 
     st.sidebar.header("📁 Control Panel")
     
+    # عرض تاريخ الشيت المرفوع فى الـ Sidebar
+    target_file_check = "shared_daily_sales.xlsx" if os.path.exists("shared_daily_sales.xlsx") else "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
+    if os.path.exists(target_file_check):
+        try:
+            raw_meta = pd.read_excel(target_file_check, header=None)
+            sheet_date = raw_meta.iloc[1, 2]
+            if pd.notna(sheet_date):
+                st.sidebar.info(f"📅 تاريخ الشيت: {sheet_date}")
+        except Exception:
+            pass
+
     saved_file_path = "shared_daily_sales.xlsx"
 
     if st.session_state.role == "admin":
@@ -163,14 +185,15 @@ else:
             with open(saved_file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             st.sidebar.success("تم رفع وحفظ الشيت بنجاح!")
+            st.rerun()
     else:
         st.sidebar.info(f"👤 Line User: {st.session_state.assigned_line}")
 
     target_file = None
     if os.path.exists(saved_file_path):
         target_file = saved_file_path
-    elif os.path.exists("Daily Sales 15-10-2026- ALL.xlsx"):
-        target_file = "Daily Sales 15-10-2026- ALL.xlsx"
+    elif os.path.exists("Daily Sales 19-10-2026- Mash GIT 1.xlsx"):
+        target_file = "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
 
     if target_file is not None:
         df = load_and_clean_data(target_file)
@@ -222,7 +245,7 @@ else:
                 buffer.seek(0)
                 
                 st.sidebar.download_button(
-                    label=f"📥 تحميل شيت  {assigned_line} ",
+                    label=f"📥 تحميل شيت {assigned_line}",
                     data=buffer,
                     file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
