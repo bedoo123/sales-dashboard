@@ -45,6 +45,7 @@ USERS = {
     "primary1": {"password": "123", "role": "user", "line": "Mash Primary Care-1"},
     "primary2": {"password": "123", "role": "user", "line": "Mash Primary Care -2"},
     "medical": {"password": "123", "role": "user", "line": "Mash Medical Line -N"}
+
 }
 
 if "logged_in" not in st.session_state:
@@ -225,18 +226,6 @@ else:
                     data=buffer,
                     file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-
-        # زر إضافي في الـ Sidebar يتيح للأدمن (أو أي مستخدم) تحميل ملف الكود `app.py` نفسه مباشرة
-        st.sidebar.markdown("---")
-        if os.path.exists(__file__):
-            with open(__file__, "rb") as code_f:
-                st.sidebar.download_button(
-                    label="📥 تحميل كود التطبيق (app.py)",
-                    data=code_f,
-                    file_name="app.py",
-                    mime="text/plain",
                     use_container_width=True
                 )
 
