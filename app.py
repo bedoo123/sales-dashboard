@@ -4,7 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 import io
-import base64
 
 st.set_page_config(
     page_title="Sales & Distribution Dashboard",
@@ -65,40 +64,21 @@ if "logged_in" not in st.session_state:
     st.session_state.role = ""
     st.session_state.assigned_line = ""
 
-def get_image_base64(path):
-    if os.path.exists(path):
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    return ""
-
 def login_page():
     _, col2, _ = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-        
-        logo_b64 = get_image_base64("logo.png")
-        logo_html = f'''
-            <div style="text-align: center; margin-bottom: 15px;">
-                <img src="data:image/png;base64,{logo_b64}" width="110" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);" />
-            </div>
-        ''' if logo_b64 else ''
-        
-        st.markdown(f'''
-            <div style="
-                background: linear-gradient(145deg, rgba(30, 30, 35, 0.8), rgba(20, 20, 25, 0.95));
-                padding: 30px;
-                border-radius: 15px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-                margin-bottom: 10px;
-            ">
-                {logo_html}
-                <h3 style='color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h3>
-                <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 20px;'>Sales & Distribution Executive Dashboard</p>
-            </div>
-        ''', unsafe_allow_html=True)
+        st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
         
         with st.form("login_form"):
+            if os.path.exists("logo.png"):
+                c1, c2, c3 = st.columns([1, 1.2, 1])
+                with c2:
+                    st.image("logo.png", width=110)
+            
+            st.markdown("<h3 style='text-align: center; color: #ffffff; margin-bottom: 0px;'>Welcome Back</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #a0a0a0; font-size: 13px;'>Sales & Distribution Executive Dashboard</p>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+            
             username = st.text_input("👤 Username", placeholder="Enter your username")
             password = st.text_input("🔑 Password", type="password", placeholder="Enter your password")
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
