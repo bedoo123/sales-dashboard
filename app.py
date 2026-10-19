@@ -68,7 +68,7 @@ def login_page():
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
                 ">
                     <h2 style='color: #ffffff; text-align: center; font-size: 22px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h2>
-                    <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Sales & Distribution Executive Dashboard</p>
+                    <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Sales & Distribution Dashboard</p>
                     <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Made by Commercial Excellence</p>
             ''', unsafe_allow_html=True)
             
@@ -101,7 +101,7 @@ else:
         st.session_state.logged_in = False
         st.rerun()
 
-    st.title("📊 Sales & Distribution Executive Dashboard")
+    st.title("📊 Sales & Distribution Dashboard")
     
     # استخراج وعرض تاريخ الشيت المرفوع تلقائياً فى الصفحة الرئيسية أيضاً
     try:
@@ -109,7 +109,7 @@ else:
         raw_meta = pd.read_excel(target_file_chk, header=None)
         sheet_date = raw_meta.iloc[1, 2]
         if pd.notna(sheet_date):
-            st.markdown(f"📅 **تاريخ الشيت المرفوع:** `{sheet_date}`")
+            st.markdown(f"📅 **Date :** `{sheet_date}`")
     except Exception:
         pass
         
@@ -173,7 +173,7 @@ else:
             raw_meta = pd.read_excel(target_file_check, header=None)
             sheet_date = raw_meta.iloc[1, 2]
             if pd.notna(sheet_date):
-                st.sidebar.info(f"📅 تاريخ الشيت: {sheet_date}")
+                st.sidebar.info(f"📅 Date: {sheet_date}")
         except Exception:
             pass
 
