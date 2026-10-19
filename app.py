@@ -55,32 +55,24 @@ if "logged_in" not in st.session_state:
 def login_page():
     _, col2, _ = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
         
         with st.form("login_form"):
-            # بطاقة تسجيل الدخول بخلفية وإطار متناسق
             st.markdown('''
                 <div style="
                     background: linear-gradient(135deg, #1a1a24 0%, #111118 100%);
-                    padding: 30px 25px;
+                    padding: 35px 30px;
                     border-radius: 16px;
                     border: 1px solid rgba(211, 84, 0, 0.3);
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-                    text-align: center;
                 ">
+                    <h2 style='color: #ffffff; text-align: center; font-size: 22px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h2>
+                    <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Sales & Distribution Executive Dashboard</p>
             ''', unsafe_allow_html=True)
-            
-            if os.path.exists("logo.png"):
-                c1, c2, c3 = st.columns([1, 1.2, 1])
-                with c2:
-                    st.image("logo.png", width=75)
-            
-            st.markdown("<h3 style='color: #ffffff; font-size: 20px; margin-top: 10px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h3>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #a0a0a0; font-size: 13px; margin-bottom: 20px;'>Sales & Distribution Executive Dashboard</p>", unsafe_allow_html=True)
             
             username = st.text_input("👤 Username", placeholder="Enter your username")
             password = st.text_input("🔑 Password", type="password", placeholder="Enter your password")
-            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
             submit = st.form_submit_button("Sign In", use_container_width=True)
             
             st.markdown("</div>", unsafe_allow_html=True)
