@@ -83,7 +83,6 @@ def login_page():
             </div>
         ''' if logo_b64 else ''
         
-        # Clean unified login card container
         st.markdown(f'''
             <div style="
                 background: linear-gradient(145deg, rgba(30, 30, 35, 0.8), rgba(20, 20, 25, 0.95));
@@ -91,10 +90,12 @@ def login_page():
                 border-radius: 15px;
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+                margin-bottom: 10px;
             ">
                 {logo_html}
                 <h3 style='color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h3>
                 <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 20px;'>Sales & Distribution Executive Dashboard</p>
+            </div>
         ''', unsafe_allow_html=True)
         
         with st.form("login_form"):
@@ -113,8 +114,6 @@ def login_page():
                     st.rerun()
                 else:
                     st.error("اسم المستخدم أو كلمة المرور غير صحيحة.")
-                    
-        st.markdown("</div>", unsafe_allow_html=True)
 
 if not st.session_state.logged_in:
     login_page()
