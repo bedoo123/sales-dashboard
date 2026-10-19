@@ -111,9 +111,10 @@ else:
         else:
             return f"{val:,.0f} EGP"
 
+    @st.cache_data
     def load_and_clean_data(file_path):
         raw_df = pd.read_excel(file_path, header=None)
-        df = raw_df.iloc[4:].copy() # البيانات تبدأ من الصف الرابع بناءً على الفورمات الجديد
+        df = raw_df.iloc[4:].copy()
         
         data = pd.DataFrame()
         data['Cluster'] = df.iloc[:, 0].astype(str).str.strip()
@@ -161,15 +162,14 @@ else:
             with open(saved_file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             st.sidebar.success("تم رفع وحفظ الشيت بنجاح!")
-            st.rerun()
     else:
         st.sidebar.info(f"👤 Line User: {st.session_state.assigned_line}")
 
     target_file = None
     if os.path.exists(saved_file_path):
         target_file = saved_file_path
-    elif os.path.exists("Daily Sales 19-10-2026- Mash GIT 1.xlsx"):
-        target_file = "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
+    elif os.path.exists("Daily Sales 15-10-2026- ALL.xlsx"):
+        target_file = "Daily Sales 15-10-2026- ALL.xlsx"
 
     if target_file is not None:
         df = load_and_clean_data(target_file)
@@ -200,30 +200,43 @@ else:
             if not filtered_df.empty:
                 st.sidebar.markdown("---")
                 buffer = io.BytesIO()
-                raw_full_df = pd.read_excel(target_file, header=None)
-                header_rows = raw_full_df.iloc[:4].copy() # أول 4 صفوف ترويسة
-                data_rows = raw_full_df.iloc[4:].copy()
-                line_data_rows = data_rows[data_rows.iloc[:, 0].astype(str).str.strip() == assigned_line].copy()
                 
-                # حساب نسبة الـ Ach تلقائياً (Private Ach Value في العمود رقم 7)
-                if line_data_rows.shape[1] > 7:
-                    sales_val = pd.to_numeric(line_data_rows.iloc[:, 4], errors='coerce').fillna(0)
-                    target_val = pd.to_numeric(line_data_rows.iloc[:, 6], errors='coerce').fillna(0)
-                    ach_val = sales_val / target_val
-                    ach_val[target_val == 0] = 0
-                    line_data_rows.iloc[:, 7] = ach_val
-
-                final_export_df = pd.concat([header_rows, line_data_rows], ignore_index=True)
+                import openpyxl
+                wb = openpyxl.load_workbook(target_file)
+                ws = wb.active
                 
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    final_export_df.to_excel(writer, index=False, header=False)
+                total_label = assigned_line + ' Total'
+                rows_to_delete = []
+                for row in range(5, ws.max_row + 1):
+                    val = ws.cell(row=row, column=1).value
+                    if val is not None:
+                        val_str = str(val).strip()
+                        if val_str != assigned_line and val_str != total_label:
+                            rows_to_delete.append(row)
+                
+                for r in sorted(rows_to_delete, reverse=True):
+                    ws.delete_rows(r)
+                    
+                wb.save(buffer)
                 buffer.seek(0)
                 
                 st.sidebar.download_button(
-                    label=f"📥 تحميل شيت خط {assigned_line} بنفس الفورمات",
+                    label=f"📥 تحميل شيت  {assigned_line} ",
                     data=buffer,
                     file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+        # زر إضافي في الـ Sidebar يتيح للأدمن (أو أي مستخدم) تحميل ملف الكود `app.py` نفسه مباشرة
+        st.sidebar.markdown("---")
+        if os.path.exists(__file__):
+            with open(__file__, "rb") as code_f:
+                st.sidebar.download_button(
+                    label="📥 تحميل كود التطبيق (app.py)",
+                    data=code_f,
+                    file_name="app.py",
+                    mime="text/plain",
                     use_container_width=True
                 )
 
