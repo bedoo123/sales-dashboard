@@ -12,14 +12,29 @@ st.set_page_config(
     layout="wide"
 )
 
+# تصميم عصري محسن بالكامل لصفحة الدخول وباقي العناصر
 st.markdown("""
     <style>
+    /* إخفاء القائمة الجانبية والشريط العلوي في صفحة الدخول لجعلها نظيفة ومركزة */
+    div[data-testid="stSidebarNav"] {display: none;}
+    
     div[data-testid="stMetric"] {
         background-color: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         padding: 15px;
         border-radius: 10px;
         border-left: 5px solid #007bff;
+    }
+    
+    /* تنسيق أزرار الإدخال والتحكم */
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        border-color: #007bff;
+        color: #007bff;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -60,31 +75,37 @@ def get_image_base64(path):
     return ""
 
 def login_page():
-    col1, col2, col3 = st.columns([1, 1.2, 1])
+    # استخدام أعمدة متوازنة لتوسيط البطاقة بدقة تامة في المنتصف
+    _, col2, _ = st.columns([1, 1.1, 1])
     with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
         
         logo_b64 = get_image_base64("logo.png")
-        logo_html = f'<img src="data:image/png;base64,{logo_b64}" width="130" style="margin-bottom: 15px;" />' if logo_b64 else ''
+        logo_html = f'''
+            <div style="text-align: center; margin-bottom: 20px;">
+                <img src="data:image/png;base64,{logo_b64}" width="120" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);" />
+            </div>
+        ''' if logo_b64 else ''
         
+        # تصميم بطاقة تسجيل الدخول الفاخرة
         st.markdown(f"""
             <div style="
-                background-color: rgba(255, 255, 255, 0.03);
-                padding: 35px;
-                border-radius: 15px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                text-align: center;
+                background: linear-gradient(145deg, rgba(30, 30, 35, 0.7), rgba(20, 20, 25, 0.9));
+                padding: 40px 30px;
+                border-radius: 20px;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
             ">
                 {logo_html}
-                <h3 style='color: #ffffff; margin-top: 5px; margin-bottom: 25px;'>🔐 Login to Sales Dashboard</h3>
+                <h2 style='color: #ffffff; text-align: center; font-size: 24px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h2>
+                <p style='color: #a0a0a0; text-align: center; font-size: 14px; margin-bottom: 25px;'>Sales & Distribution Executive Dashboard</p>
         """, unsafe_allow_html=True)
         
         with st.form("login_form"):
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-            submit = st.form_submit_button("Login", use_container_width=True)
+            username = st.text_input("👤 Username", placeholder="Enter your username")
+            password = st.text_input("🔑 Password", type="password", placeholder="Enter your password")
+            st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+            submit = st.form_submit_button("Sign In", use_container_width=True)
             
             if submit:
                 if username in USERS and USERS[username]["password"] == password:
@@ -92,10 +113,10 @@ def login_page():
                     st.session_state.username = username
                     st.session_state.role = USERS[username]["role"]
                     st.session_state.assigned_line = USERS[username]["line"]
-                    st.success("Logged in successfully!")
+                    st.success("تم تسجيل الدخول بنجاح!")
                     st.rerun()
                 else:
-                    st.error("Invalid username or password.")
+                    st.error("اسم المستخدم أو كلمة المرور غير صحيحة.")
                     
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -104,9 +125,13 @@ if not st.session_state.logged_in:
 else:
     # Sidebar Logo & User Info
     if os.path.exists("logo.png"):
-        st.sidebar.image("logo.png", width=140)
+        sb_c1, sb_c2, sb_c3 = st.sidebar.columns([1, 2, 1])
+        with sb_c2:
+            st.sidebar.image("logo.png", width=120)
+            
+    st.sidebar.markdown("<br>", unsafe_allow_html=True)
     st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("Logout", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
 
