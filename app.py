@@ -25,7 +25,7 @@ st.markdown("""
 
 # قائمة المستخدمين والصلاحيات
 USERS = {
-    "admin": {"password": "admin1231", "role": "admin", "line": "All"},
+    "admin": {"password": "admin", "role": "admin", "line": "All"},
     "chc1": {"password": "123", "role": "user", "line": "Mash CHC 1"},
     "chc2": {"password": "123", "role": "user", "line": "Mash CHC 2"},
     "cns1": {"password": "123", "role": "user", "line": "Mash CNS 1"},
@@ -55,6 +55,8 @@ if "logged_in" not in st.session_state:
 def login_page():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=160)
         st.markdown("<h2 style='text-align: center;'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         username = st.text_input("Username")
@@ -73,6 +75,9 @@ def login_page():
 if not st.session_state.logged_in:
     login_page()
 else:
+    # عرض الشعار في الشريط الجانبي بعد تسجيل الدخول[cite: 10]
+    if os.path.exists("logo.png"):
+        st.sidebar.image("logo.png", width=140)
     st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
@@ -161,7 +166,6 @@ else:
             )
             filtered_df = df[df['Cluster'].isin(selected_clusters)]
             
-            # زر تحميل الشيت الكامل للأدمن
             st.sidebar.markdown("---")
             with open(saved_file_path, "rb") as f:
                 st.sidebar.download_button(
@@ -176,12 +180,11 @@ else:
             filtered_df = df[df['Cluster'] == assigned_line]
             st.sidebar.warning(f"Viewing Line: {assigned_line}")
             
-            # زر تحميل الشيت المخصص لليوزر الحالي
             if not filtered_df.empty:
                 st.sidebar.markdown("---")
                 buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                    filtered_df.to_excel(writer, index=False, sheet_name=assigned_line[:30])
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    filtered_df.to_excel(writer, index=False, sheet_name="Sales_Data")
                 buffer.seek(0)
                 st.sidebar.download_button(
                     label=f"📥 تحميل شيت خط {assigned_line}",
@@ -331,7 +334,8 @@ else:
                     'Total_Sales_Val': 'sum',
                     'Total_Target_Val': 'sum'
                 }).reset_index()
-                cluster_acc['Ach %'] = (cluster_acc['Total_Sales_Val'] / cluster_acc['Total_Target_Val'] * 100).round(1)
+                cluster_acc['Dict_Ach'] = cluster_acc['Total_Sales_Val'] / cluster_acc['Total_Target_Val'] * 100
+                cluster_acc['Ach %'] = cluster_acc['Dict_Ach'].round(1)
                 
                 fig_cluster = px.bar(
                     cluster_acc,
@@ -408,12 +412,12 @@ else:
             st.subheader("📋 Product Sales Summary Table")
             search_q = st.text_input("🔍 Search product name:")
             if search_q:
-                table_df = filtered_df[filtered_df['Product_Name'].str.contains(search_q, case=False, na=False)]
+                table_dir = filtered_df[filtered_df['Product_Name'].str.contains(search_q, case=False, na=False)]
             else:
-                table_df = filtered_df
+                table_dir = filtered_df
 
             st.dataframe(
-                table_df[[
+                table_dir[[
                     'Cluster', 'Product_Name', 'Total_Sales_Val', 
                     'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days'
                 ]].sort_values(by='Total_Sales_Val', ascending=False),
