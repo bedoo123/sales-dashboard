@@ -12,10 +12,8 @@ st.set_page_config(
     layout="wide"
 )
 
-# تصميم عصري محسن بالكامل لصفحة الدخول وباقي العناصر
 st.markdown("""
     <style>
-    /* إخفاء القائمة الجانبية والشريط العلوي في صفحة الدخول لجعلها نظيفة ومركزة */
     div[data-testid="stSidebarNav"] {display: none;}
     
     div[data-testid="stMetric"] {
@@ -26,7 +24,6 @@ st.markdown("""
         border-left: 5px solid #007bff;
     }
     
-    /* تنسيق أزرار الإدخال والتحكم */
     .stButton>button {
         border-radius: 8px;
         font-weight: bold;
@@ -75,36 +72,35 @@ def get_image_base64(path):
     return ""
 
 def login_page():
-    # استخدام أعمدة متوازنة لتوسيط البطاقة بدقة تامة في المنتصف
-    _, col2, _ = st.columns([1, 1.1, 1])
+    _, col2, _ = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
         
         logo_b64 = get_image_base64("logo.png")
         logo_html = f'''
-            <div style="text-align: center; margin-bottom: 20px;">
-                <img src="data:image/png;base64,{logo_b64}" width="120" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);" />
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="data:image/png;base64,{logo_b64}" width="110" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);" />
             </div>
         ''' if logo_b64 else ''
         
-        # تصميم بطاقة تسجيل الدخول الفاخرة
-        st.markdown(f"""
+        # Clean unified login card container
+        st.markdown(f'''
             <div style="
-                background: linear-gradient(145deg, rgba(30, 30, 35, 0.7), rgba(20, 20, 25, 0.9));
-                padding: 40px 30px;
-                border-radius: 20px;
-                border: 1px solid rgba(255, 255, 255, 0.08);
+                background: linear-gradient(145deg, rgba(30, 30, 35, 0.8), rgba(20, 20, 25, 0.95));
+                padding: 30px;
+                border-radius: 15px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
                 box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
             ">
                 {logo_html}
-                <h2 style='color: #ffffff; text-align: center; font-size: 24px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h2>
-                <p style='color: #a0a0a0; text-align: center; font-size: 14px; margin-bottom: 25px;'>Sales & Distribution Executive Dashboard</p>
-        """, unsafe_allow_html=True)
+                <h3 style='color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h3>
+                <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 20px;'>Sales & Distribution Executive Dashboard</p>
+        ''', unsafe_allow_html=True)
         
         with st.form("login_form"):
             username = st.text_input("👤 Username", placeholder="Enter your username")
             password = st.text_input("🔑 Password", type="password", placeholder="Enter your password")
-            st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             submit = st.form_submit_button("Sign In", use_container_width=True)
             
             if submit:
