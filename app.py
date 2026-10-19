@@ -111,7 +111,7 @@ else:
         else:
             return f"{val:,.0f} EGP"
 
-    @st.cache_data
+    # تم إزالة الكاش أو إضافة التحقق من وقت تعديل الملف لضمان قراءة البيانات الجديدة فوراً
     def load_and_clean_data(file_path):
         raw_df = pd.read_excel(file_path, header=None)
         df = raw_df.iloc[3:].copy()
@@ -162,6 +162,7 @@ else:
             with open(saved_file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             st.sidebar.success("تم رفع وحفظ الشيت بنجاح!")
+            st.rerun() # إعادة تشغيل الصفحة لتحديث البيانات فوراً
     else:
         st.sidebar.info(f"👤 Line User: {st.session_state.assigned_line}")
 
