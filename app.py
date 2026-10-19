@@ -111,7 +111,6 @@ else:
         else:
             return f"{val:,.0f} EGP"
 
-    # تم إزالة الكاش أو إضافة التحقق من وقت تعديل الملف لضمان قراءة البيانات الجديدة فوراً
     def load_and_clean_data(file_path):
         raw_df = pd.read_excel(file_path, header=None)
         df = raw_df.iloc[3:].copy()
@@ -162,7 +161,7 @@ else:
             with open(saved_file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             st.sidebar.success("تم رفع وحفظ الشيت بنجاح!")
-            st.rerun() # إعادة تشغيل الصفحة لتحديث البيانات فوراً
+            st.rerun()
     else:
         st.sidebar.info(f"👤 Line User: {st.session_state.assigned_line}")
 
@@ -201,11 +200,20 @@ else:
             if not filtered_df.empty:
                 st.sidebar.markdown("---")
                 buffer = io.BytesIO()
+                # الاحتفاظ بنفس الترويسة (أول 3 صفوف) ونفس أعمدة الشيت الأصلي
+                raw_full_df = pd.read_excel(target_file, header=None)
+                header_rows = raw_full_df.iloc[:3]
+                data_rows = raw_full_df.iloc[3:]
+                line_data_rows = data_rows[data_rows.iloc[:, 0].astype(str).str.strip() == assigned_line]
+                
+                final_export_df = pd.concat([header_rows, line_data_rows], ignore_index=True)
+                
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    filtered_df.to_excel(writer, index=False, sheet_name="Sales_Data")
+                    final_export_df.to_excel(writer, index=False, header=False)
                 buffer.seek(0)
+                
                 st.sidebar.download_button(
-                    label=f"📥 تحميل شيت خط {assigned_line}",
+                    label=f"📥 تحميل شيت خط {assigned_line} بنفس الفورمات",
                     data=buffer,
                     file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
