@@ -200,11 +200,18 @@ else:
             if not filtered_df.empty:
                 st.sidebar.markdown("---")
                 buffer = io.BytesIO()
-                # الاحتفاظ بنفس الترويسة (أول 3 صفوف) ونفس أعمدة الشيت الأصلي
                 raw_full_df = pd.read_excel(target_file, header=None)
-                header_rows = raw_full_df.iloc[:3]
-                data_rows = raw_full_df.iloc[3:]
-                line_data_rows = data_rows[data_rows.iloc[:, 0].astype(str).str.strip() == assigned_line]
+                header_rows = raw_full_df.iloc[:3].copy()
+                data_rows = raw_full_df.iloc[3:].copy()
+                line_data_rows = data_rows[data_rows.iloc[:, 0].astype(str).str.strip() == assigned_line].copy()
+                
+                # حساب نسبة الـ Ach تلقائياً (Private Ach Value في العمود رقم 7)
+                if line_data_rows.shape[1] > 7:
+                    sales_val = pd.to_numeric(line_data_rows.iloc[:, 4], errors='coerce').fillna(0)
+                    target_val = pd.to_numeric(line_data_rows.iloc[:, 6], errors='coerce').fillna(0)
+                    ach_val = sales_val / target_val
+                    ach_val[target_val == 0] = 0
+                    line_data_rows.iloc[:, 7] = ach_val
                 
                 final_export_df = pd.concat([header_rows, line_data_rows], ignore_index=True)
                 
@@ -213,7 +220,7 @@ else:
                 buffer.seek(0)
                 
                 st.sidebar.download_button(
-                    label=f"📥 تحميل شيت خط {assigned_line} بنفس الفورمات",
+                    label=f"📥 تحميل شيت  {assigned_line}",
                     data=buffer,
                     file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
