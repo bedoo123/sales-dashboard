@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import os
+import io
 
 st.set_page_config(
     page_title="Sales & Distribution Dashboard",
@@ -24,25 +25,25 @@ st.markdown("""
 
 # قائمة المستخدمين والصلاحيات
 USERS = {
-    "admin": {"password": "admin", "role": "admin", "line": "All"},
-    "mash_chc1": {"password": "123", "role": "user", "line": "Mash CHC 1"},
-    "mash_chc2": {"password": "123", "role": "user", "line": "Mash CHC 2"},
-    "mash_cns1": {"password": "123", "role": "user", "line": "Mash CNS 1"},
-    "mash_cns2": {"password": "123", "role": "user", "line": "Mash CNS 2"},
-    "mash_cns3": {"password": "123", "role": "user", "line": "Mash CNS 3"},
-    "mash_cns4": {"password": "123", "role": "user", "line": "Mash CNS 4"},
-    "mash_git1": {"password": "123", "role": "user", "line": "Mash GIT 1"},
-    "mash_git2": {"password": "123", "role": "user", "line": "Mash GIT 2"},
-    "mash_git3": {"password": "123", "role": "user", "line": "Mash GIT 3"},
-    "mash_cvm1": {"password": "123", "role": "user", "line": "Mash CVM 1"},
-    "mash_cvm2": {"password": "123", "role": "user", "line": "Mash CVM 2 New"},
-    "mash_ortho": {"password": "123", "role": "user", "line": "Mash Ortho"},
-    "mash_gyna": {"password": "123", "role": "user", "line": "Mash Gyna"},
-    "mash_dnu": {"password": "123", "role": "user", "line": "Mash DNU"},
-    "mash_oxa": {"password": "123", "role": "user", "line": "Mash Oxaleptal-Atten"},
-    "mash_derma": {"password": "123", "role": "user", "line": "Mash DERMA"},
-    "mash_primary1": {"password": "123", "role": "user", "line": "Mash Primary Care-1"},
-    "mash_primary2": {"password": "123", "role": "user", "line": "Mash Primary Care -2"}
+    "admin": {"password": "admin1231", "role": "admin", "line": "All"},
+    "chc1": {"password": "123", "role": "user", "line": "Mash CHC 1"},
+    "chc2": {"password": "123", "role": "user", "line": "Mash CHC 2"},
+    "cns1": {"password": "123", "role": "user", "line": "Mash CNS 1"},
+    "cns2": {"password": "123", "role": "user", "line": "Mash CNS 2"},
+    "cns3": {"password": "123", "role": "user", "line": "Mash CNS 3"},
+    "cns4": {"password": "123", "role": "user", "line": "Mash CNS 4"},
+    "git1": {"password": "123", "role": "user", "line": "Mash GIT 1"},
+    "git2": {"password": "123", "role": "user", "line": "Mash GIT 2"},
+    "git3": {"password": "123", "role": "user", "line": "Mash GIT 3"},
+    "cvm1": {"password": "123", "role": "user", "line": "Mash CVM 1"},
+    "cvm2": {"password": "123", "role": "user", "line": "Mash CVM 2 New"},
+    "ortho": {"password": "123", "role": "user", "line": "Mash Ortho"},
+    "gyna": {"password": "123", "role": "user", "line": "Mash Gyna"},
+    "dnu": {"password": "123", "role": "user", "line": "Mash DNU"},
+    "oxa": {"password": "123", "role": "user", "line": "Mash Oxaleptal-Atten"},
+    "derma": {"password": "123", "role": "user", "line": "Mash DERMA"},
+    "primary1": {"password": "123", "role": "user", "line": "Mash Primary Care-1"},
+    "primary2": {"password": "123", "role": "user", "line": "Mash Primary Care -2"}
 }
 
 if "logged_in" not in st.session_state:
@@ -131,20 +132,17 @@ else:
 
     st.sidebar.header("📁 Control Panel")
     
-    # تحديد مسار حفظ الملف المشترك محلياً
     saved_file_path = "shared_daily_sales.xlsx"
 
     if st.session_state.role == "admin":
         uploaded_file = st.sidebar.file_uploader("Upload Excel File (Admin Only)", type=["xlsx", "xls"])
         if uploaded_file is not None:
-            # حفظ الملف محلياً ليراه جميع المستخدمين حتى بعد تسجيل الخروج
             with open(saved_file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             st.sidebar.success("تم رفع وحفظ الشيت بنجاح!")
     else:
         st.sidebar.info(f"👤 Line User: {st.session_state.assigned_line}")
 
-    # التحقق من وجود الملف المحلي (سواء تم رفعه بواسطة الأدمن أو موجود مسبقاً)
     target_file = None
     if os.path.exists(saved_file_path):
         target_file = saved_file_path
@@ -162,10 +160,36 @@ else:
                 default=df['Cluster'].unique()
             )
             filtered_df = df[df['Cluster'].isin(selected_clusters)]
+            
+            # زر تحميل الشيت الكامل للأدمن
+            st.sidebar.markdown("---")
+            with open(saved_file_path, "rb") as f:
+                st.sidebar.download_button(
+                    label="📥 تحميل الشيت الكامل (Admin)",
+                    data=f,
+                    file_name="Daily_Sales_All.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
         else:
             assigned_line = st.session_state.assigned_line
             filtered_df = df[df['Cluster'] == assigned_line]
             st.sidebar.warning(f"Viewing Line: {assigned_line}")
+            
+            # زر تحميل الشيت المخصص لليوزر الحالي
+            if not filtered_df.empty:
+                st.sidebar.markdown("---")
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                    filtered_df.to_excel(writer, index=False, sheet_name=assigned_line[:30])
+                buffer.seek(0)
+                st.sidebar.download_button(
+                    label=f"📥 تحميل شيت خط {assigned_line}",
+                    data=buffer,
+                    file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
 
         if filtered_df.empty:
             st.warning("⚠️ لا توجد بيانات مطابقة للخط الخاص بك في هذا الشيت. تأكد من تطابق اسم الخط (Cluster) مع اسم المستخدم.")
