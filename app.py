@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 import io
+import base64
 
 st.set_page_config(
     page_title="Sales & Distribution Dashboard",
@@ -52,29 +53,32 @@ if "logged_in" not in st.session_state:
     st.session_state.role = ""
     st.session_state.assigned_line = ""
 
+def get_image_base64(path):
+    if os.path.exists(path):
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    return ""
+
 def login_page():
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        # Using a container with custom CSS styling for the login card
-        st.markdown("""
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        logo_b64 = get_image_base64("logo.png")
+        logo_html = f'<img src="data:image/png;base64,{logo_b64}" width="130" style="margin-bottom: 15px;" />' if logo_b64 else ''
+        
+        st.markdown(f"""
             <div style="
                 background-color: rgba(255, 255, 255, 0.03);
-                padding: 30px;
+                padding: 35px;
                 border-radius: 15px;
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 box-shadow: 0 4px 20px rgba(0,0,0,0.5);
                 text-align: center;
             ">
+                {logo_html}
+                <h3 style='color: #ffffff; margin-top: 5px; margin-bottom: 25px;'>🔐 Login to Sales Dashboard</h3>
         """, unsafe_allow_html=True)
-        
-        if os.path.exists("logo.png"):
-            # Center the image perfectly using columns inside the card
-            img_c1, img_c2, img_c3 = st.columns([1, 1.2, 1])
-            with img_c2:
-                st.image("logo.png", width=130)
-                
-        st.markdown("<h3 style='color: #ffffff; margin-top: 15px; margin-bottom: 25px;'>🔐 Login to Sales Dashboard</h3>", unsafe_allow_html=True)
         
         with st.form("login_form"):
             username = st.text_input("Username")
