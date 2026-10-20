@@ -291,18 +291,18 @@ else:
         st.session_state.assigned_line = ""
         st.rerun()
 
-    st.title("📊 Sales & Distribution Executive Dashboard")
+    st.title("📊 Sales & Distribution Dashboard")
 
     restore_shared_file()
     target_file = resolve_data_file()
     sheet_date = get_sheet_date(target_file) if target_file else None
     if sheet_date is not None:
-        st.markdown(f"📅 **تاريخ الشيت المرفوع:** `{sheet_date}`")
+        st.markdown(f"📅 **Date:** `{sheet_date}`")
     st.markdown("---")
 
     st.sidebar.header("📁 Control Panel")
     if sheet_date is not None:
-        st.sidebar.info(f"📅 تاريخ الشيت: {sheet_date}")
+        st.sidebar.info(f"📅 Date: {sheet_date}")
 
     flash = st.session_state.pop("flash", None)
     if flash:
@@ -349,7 +349,7 @@ else:
             st.sidebar.markdown("---")
             with open(target_file, "rb") as f:
                 st.sidebar.download_button(
-                    label="📥 تحميل الشيت الكامل (Admin)",
+                    label="📥 Download All (Admin)",
                     data=f.read(),
                     file_name="Daily_Sales_All.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -363,7 +363,7 @@ else:
             if not filtered_df.empty:
                 st.sidebar.markdown("---")
                 st.sidebar.download_button(
-                    label=f"📥 تحميل شيت {assigned_line}",
+                    label=f"📥 Download {assigned_line}",
                     data=build_line_workbook(target_file, file_mtime, assigned_line),
                     file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
