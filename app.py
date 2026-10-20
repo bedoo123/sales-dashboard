@@ -280,29 +280,166 @@ def build_line_workbook(file_path, mtime, line):
     wb.save(buffer)
     return buffer.getvalue()
 
+LOGIN_CSS = """
+<style>
+/* ===== Login page only (this block is not rendered after sign-in) ===== */
+[data-testid="stApp"] {
+    background-image:
+        radial-gradient(60% 50% at 15% 10%, rgba(230, 126, 34, 0.20), transparent 70%),
+        radial-gradient(50% 45% at 90% 20%, rgba(52, 152, 219, 0.18), transparent 70%),
+        radial-gradient(55% 50% at 60% 100%, rgba(155, 89, 182, 0.16), transparent 70%),
+        linear-gradient(rgba(128,128,128,0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(128,128,128,0.07) 1px, transparent 1px);
+    background-size: auto, auto, auto, 44px 44px, 44px 44px;
+}
+[data-testid="stApp"]::before,
+[data-testid="stApp"]::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(70px);
+    pointer-events: none;
+    z-index: 0;
+}
+[data-testid="stApp"]::before {
+    width: 420px; height: 420px; top: -120px; left: -100px;
+    background: rgba(230, 126, 34, 0.35);
+    animation: lg-float-a 14s ease-in-out infinite alternate;
+}
+[data-testid="stApp"]::after {
+    width: 380px; height: 380px; bottom: -120px; right: -80px;
+    background: rgba(52, 152, 219, 0.30);
+    animation: lg-float-b 17s ease-in-out infinite alternate;
+}
+@keyframes lg-float-a { to { transform: translate(120px, 90px) scale(1.15); } }
+@keyframes lg-float-b { to { transform: translate(-110px, -80px) scale(1.2); } }
+@media (prefers-reduced-motion: reduce) {
+    [data-testid="stApp"]::before, [data-testid="stApp"]::after { animation: none; }
+}
+
+[data-testid="stHeader"] { background: transparent; }
+
+/* ===== Glass card ===== */
+div[data-testid="stForm"] {
+    position: relative;
+    z-index: 1;
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 30px 30px 26px;
+    border-radius: 24px;
+    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    background: color-mix(in srgb, currentColor 5%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+    box-shadow:
+        0 25px 70px -25px rgba(211, 84, 0, 0.45),
+        0 0 60px -20px rgba(52, 152, 219, 0.35);
+}
+div[data-testid="stForm"]::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 12%; right: 12%;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #e67e22, #3498db, transparent);
+    box-shadow: 0 0 14px rgba(230, 126, 34, 0.8);
+}
+
+.lg-head { text-align: center; padding: 4px 0 18px; }
+.lg-badge {
+    width: 68px; height: 68px;
+    margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 20px;
+    font-size: 32px;
+    background: linear-gradient(135deg, rgba(230,126,34,0.25), rgba(52,152,219,0.20));
+    border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+    box-shadow: 0 0 28px rgba(230, 126, 34, 0.40);
+    overflow: hidden;
+}
+.lg-badge img { width: 100%; height: 100%; object-fit: contain; padding: 8px; box-sizing: border-box; }
+.lg-title {
+    margin: 0 0 6px 0; padding: 0;
+    font-size: 28px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.15;
+    background: linear-gradient(90deg, #d35400, #f39c12 55%, #f1c40f);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+}
+.lg-sub { margin: 0 0 12px 0; font-size: 14px; opacity: 0.75; }
+.lg-chip {
+    display: inline-block;
+    padding: 4px 12px;
+    font-size: 11.5px; letter-spacing: 0.4px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+    background: color-mix(in srgb, currentColor 6%, transparent);
+    opacity: 0.85;
+}
+
+/* ===== Inputs ===== */
+div[data-testid="stForm"] div[data-baseweb="input"] {
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+div[data-testid="stForm"] div[data-baseweb="input"]:focus-within {
+    border-color: #e67e22;
+    box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.22), 0 0 22px rgba(230, 126, 34, 0.25);
+}
+
+/* ===== Sign-in button ===== */
+div[data-testid="stFormSubmitButton"] button {
+    height: 46px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: #fff;
+    background: linear-gradient(135deg, #f39c12, #d35400);
+    box-shadow: 0 8px 24px -8px rgba(211, 84, 0, 0.8);
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+div[data-testid="stFormSubmitButton"] button:hover {
+    color: #fff;
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+    box-shadow: 0 12px 30px -8px rgba(211, 84, 0, 0.95), 0 0 22px rgba(243, 156, 18, 0.45);
+}
+div[data-testid="stFormSubmitButton"] button:active { transform: translateY(0); }
+
+@media (max-width: 640px) {
+    div[data-testid="stForm"] { padding: 24px 18px 20px; border-radius: 20px; }
+    .lg-title { font-size: 24px; }
+}
+</style>
+"""
+
+@st.cache_resource
+def logo_data_uri():
+    try:
+        with open("logo.png", "rb") as f:
+            return "data:image/png;base64," + base64.b64encode(f.read()).decode("ascii")
+    except Exception:
+        return None
+
 def login_page():
-    _, col2, _ = st.columns([1, 1.2, 1])
+    st.markdown(LOGIN_CSS, unsafe_allow_html=True)
+    _, col2, _ = st.columns([1, 1.4, 1])
     with col2:
-        st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
-        
+        st.markdown("<div style='height: 6vh;'></div>", unsafe_allow_html=True)
+
         with st.form("login_form"):
-            st.markdown("""
-                <div style="
-                    background: color-mix(in srgb, currentColor 5%, transparent);
-                    padding: 30px 24px;
-                    border-radius: 16px;
-                    border: 1px solid rgba(211, 84, 0, 0.35);
-                    border-top: 4px solid #d35400;
-                    box-shadow: 0 4px 16px color-mix(in srgb, currentColor 12%, transparent);
-                    margin-bottom: 20px;
-                    text-align: center;
-                ">
-                    <h2 style="margin: 0 0 8px 0; padding: 0; font-size: 22px; font-weight: 600; color: inherit;">Welcome Back</h2>
-                    <p style="margin: 0 0 6px 0; font-size: 13px; opacity: 0.7; color: inherit;">Sales & Distribution Dashboard</p>
-                    <p style="margin: 0; font-size: 13px; opacity: 0.7; color: inherit;">Made by Commercial Excellence</p>
+            logo = logo_data_uri()
+            badge = f'<img src="{logo}" alt="logo">' if logo else "📊"
+            st.markdown(f"""
+                <div class="lg-head">
+                    <div class="lg-badge">{badge}</div>
+                    <h2 class="lg-title">Welcome Back</h2>
+                    <p class="lg-sub">Sales &amp; Distribution Dashboard</p>
+                    <span class="lg-chip">Made by Commercial Excellence</span>
                 </div>
             """, unsafe_allow_html=True)
-            
+
             username = st.text_input("👤 Username", placeholder="Enter your username")
             password = st.text_input("🔑 Password", type="password", placeholder="Enter your password")
             st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
@@ -318,7 +455,7 @@ def login_page():
                     st.session_state.assigned_line = user["line"]
                     st.rerun()
                 else:
-                    st.error("اسم المستخدم أو كلمة المرور غير صحيحة.")
+                    st.error("Incorrect username or password.")
 
 if not st.session_state.logged_in:
     login_page()
