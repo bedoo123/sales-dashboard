@@ -87,7 +87,7 @@ NUMERIC_COLS = {
     'Private_Target_Qty': 5, 'Private_Target_Val': 6,
     'Ibn Sina': 9, 'Pharma': 11, 'Ramco': 13, 'UCP': 15, 'MEC': 17,
     'Sofico': 19, 'ETC': 21, 'Direct': 23, 'Stores': 25,
-    'Stock_Days': 42, 'Total_Stock_Qty': 45, 'Total_Stock_Val': 46,
+    'Stock_Days': 42, 'Total_Stock_Qty': 45, 'Stock_Val_ex_Badr': 44,
     'Tender_Sales_Qty': 58, 'Tender_Sales_Val': 59,
     'Total_Sales_Qty': 60, 'Total_Sales_Val': 61,
     'Total_Target_Qty': 62, 'Total_Target_Val': 63,
@@ -198,6 +198,18 @@ def restore_shared_file():
     except Exception as e:
         return f"failed: {e}"
 
+MONEY_COLS = ['Total_Sales_Val', 'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Val_ex_Badr']
+
+def style_numbers(frame):
+    """يعرض الأرقام بفواصل آلاف (1,234,567) مع الحفاظ على الترتيب بالأرقام الحقيقية."""
+    fmt = {}
+    for c in frame.columns:
+        if c in MONEY_COLS or c.endswith('_Qty'):
+            fmt[c] = "{:,.0f}"
+        elif c == 'Stock_Days':
+            fmt[c] = "{:,.1f}"
+    return frame.style.format(fmt, na_rep="-")
+
 def resolve_data_file():
     return SHARED_FILE if os.path.exists(SHARED_FILE) else None
 
@@ -219,21 +231,32 @@ def load_and_clean_data(file_path, mtime):
     raw_df = load_raw_sheet(file_path, mtime)
     df = raw_df.iloc[4:].copy()
 
-    data = pd.DataFrame()
-    data['Cluster'] = df.iloc[:, 0].astype(str).str.strip()
-    data['Product_ID'] = df.iloc[:, 1]
-    data['Product_Name'] = df.iloc[:, 2].astype(str).str.strip()
+    cluster_raw = df.iloc[:, 0]
+    product_raw = df.iloc[:, 2]
+    cluster = cluster_raw.astype(str).str.strip()
+    product = product_raw.astype(str).str.strip()
+    product_lower = product.str.lower()
 
-    # استبعاد الصفوف الفاضية وصفوف العناوين/الإجماليات
-    # (بالـ word boundary عشان منستبعدش منتجات اسمها فيه "sum" أو "nan" زي Sumatriptan)
-    name_lower = data['Product_Name'].str.lower()
-    is_junk = name_lower.isin(['', 'nan', 'none']) | name_lower.str.contains(
-        r"^crm product name|\btotal\b|subtotal|\bsum\b", regex=True
+    # صفوف المنتجات الحقيقية بس: لازم اسم منتج، ومش صف إجمالي ("... Total") ولا عنوان
+    # (ملاحظة: مع pandas الجديد astype(str) بيسيب القيم الفاضية NaN، فلازم نفحص notna صراحة)
+    is_product = (
+        cluster_raw.notna() & product_raw.notna()
+        & ~product_lower.isin(['', 'nan', 'none'])
+        & ~cluster.str.lower().str.endswith('total')
+        & ~product_lower.str.contains(r"^crm product name|\btotal\b|subtotal|\bsum\b", regex=True)
     )
-    data = data[~is_junk]
+
+    data = pd.DataFrame({
+        'Cluster': cluster[is_product],
+        'Product_ID': df.iloc[:, 1][is_product],
+        'Product_Name': product[is_product],
+    })
 
     for col_name, col_idx in NUMERIC_COLS.items():
         data[col_name] = pd.to_numeric(df.iloc[:, col_idx], errors='coerce').fillna(0)
+
+    # الشيت بيحط 36525 (=100 سنة) في Stock Days لو مفيش مبيعات، فبنعتبرها "مفيش قيمة"
+    data.loc[data['Stock_Days'] >= 36500, 'Stock_Days'] = float('nan')
 
     return data
 
@@ -447,7 +470,7 @@ else:
             no_target_df = filtered_df[filtered_df['Total_Target_Val'] == 0]
             
             if not no_target_df.empty:
-                no_target_with_sales = no_target_df[no_target_df['Total_Sales_Val'] > 0]
+                no_target_with_sales = no_target_df[no_target_df['Total_Sales_Val'] != 0]
                 no_target_no_sales = no_target_df[no_target_df['Total_Sales_Val'] == 0]
                 
                 nt_col1, nt_col2 = st.columns(2)
@@ -472,14 +495,14 @@ else:
                 with nt_col2:
                     st.markdown(f"##### 🔴 No Target AND No Sales ({len(no_target_no_sales)} SKUs)")
                     st.dataframe(
-                        no_target_no_sales[['Cluster', 'Product_Name', 'Total_Stock_Qty', 'Stock_Days']], 
-                        use_container_width=True, 
+                        style_numbers(no_target_no_sales[['Cluster', 'Product_Name', 'Total_Stock_Qty', 'Stock_Days']]),
+                        use_container_width=True,
                         height=300
                     )
 
                 with st.expander("📄 View All Products Without Target"):
                     st.dataframe(
-                        no_target_df[['Cluster', 'Product_ID', 'Product_Name', 'Total_Sales_Val', 'Total_Stock_Qty', 'Stock_Days']].sort_values(by='Total_Sales_Val', ascending=False),
+                        style_numbers(no_target_df[['Cluster', 'Product_ID', 'Product_Name', 'Total_Sales_Val', 'Total_Stock_Qty', 'Stock_Days']].sort_values(by='Total_Sales_Val', ascending=False)),
                         use_container_width=True
                     )
             else:
@@ -558,21 +581,25 @@ else:
                     'Total_Sales_Val': 'sum',
                     'Total_Target_Val': 'sum'
                 }).reset_index()
-                # لو التارجت صفر منقسمش (كان بيطلع inf/NaN)
+                # لو التارجت صفر منقسمش، ونكتب "No target" بدل 0% (عشان ميبانش إن الخط مقصّر)
                 safe_target = cluster_acc['Total_Target_Val'].where(cluster_acc['Total_Target_Val'] > 0)
-                cluster_acc['Ach %'] = (cluster_acc['Total_Sales_Val'] / safe_target * 100).fillna(0).round(1)
-                
+                cluster_acc['Ach %'] = (cluster_acc['Total_Sales_Val'] / safe_target * 100).round(1)
+                cluster_acc['Label'] = cluster_acc['Ach %'].map(
+                    lambda v: 'No target' if pd.isna(v) else f'Ach: {v:.1f}%'
+                )
+                cluster_acc['Ach_color'] = cluster_acc['Ach %'].fillna(0)
+
                 fig_cluster = px.bar(
                     cluster_acc,
                     x='Cluster',
                     y='Total_Sales_Val',
-                    text='Ach %',
+                    text='Label',
                     title="Sales by Cluster (Label shows Achievement %)",
-                    color='Ach %',
+                    color='Ach_color',
                     color_continuous_scale='Greens',
-                    labels={'Total_Sales_Val': 'Sales Value (EGP)'}
+                    labels={'Total_Sales_Val': 'Sales Value (EGP)', 'Ach_color': 'Ach %'}
                 )
-                fig_cluster.update_traces(texttemplate='Ach: %{text}%', textposition='outside')
+                fig_cluster.update_traces(textposition='outside')
                 st.plotly_chart(fig_cluster, use_container_width=True)
 
             with c2:
@@ -596,10 +623,13 @@ else:
                         insidetextorientation='radial'
                     )
                     st.plotly_chart(fig_dist_pie, use_container_width=True)
+                    left_out = {d: filtered_df[d].sum() for d in dist_names if filtered_df[d].sum() < 0}
+                    if left_out:
+                        st.caption("Not shown (net returns): " + ", ".join(f"{d} ({v:,.0f} EGP)" for d, v in left_out.items()))
 
             st.markdown("---")
 
-            st.subheader("🏆 Overall Top & Bottom Performing Products")
+            st.subheader("🏆 Top Products & Biggest Target Gaps")
             p1, p2 = st.columns(2)
             
             with p1:
@@ -618,19 +648,22 @@ else:
                     st.plotly_chart(fig_top10, use_container_width=True)
 
             with p2:
-                bottom10_overall = filtered_df[filtered_df['Total_Target_Val'] > 0].nsmallest(10, 'Total_Sales_Val')
-                if not bottom10_overall.empty:
-                    fig_bot10 = px.bar(
-                        bottom10_overall,
-                        x='Total_Sales_Val',
+                gap_df = filtered_df[filtered_df['Total_Target_Val'] > 0].copy()
+                gap_df['Target_Gap'] = gap_df['Total_Target_Val'] - gap_df['Total_Sales_Val']
+                top_gap = gap_df[gap_df['Target_Gap'] > 0].nlargest(10, 'Target_Gap')
+                if not top_gap.empty:
+                    fig_gap = px.bar(
+                        top_gap,
+                        x='Target_Gap',
                         y='Product_Name',
                         orientation='h',
-                        title="Lowest 10 Target-Assigned Products",
+                        title="Top 10 Target Gap (Target − Sales)",
                         text_auto=',.0f',
-                        color_discrete_sequence=['#e74c3c']
+                        color_discrete_sequence=['#e74c3c'],
+                        labels={'Target_Gap': 'Gap to Target (EGP)'}
                     )
-                    fig_bot10.update_layout(yaxis={'categoryorder':'total descending'})
-                    st.plotly_chart(fig_bot10, use_container_width=True)
+                    fig_gap.update_layout(yaxis={'categoryorder': 'total ascending'})
+                    st.plotly_chart(fig_gap, use_container_width=True)
 
             st.markdown("---")
 
@@ -646,14 +679,10 @@ else:
                 'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days'
             ]].copy().sort_values(by='Total_Sales_Val', ascending=False)
             
-            # التنسيق بـ column_config عشان الأعمدة تفضل أرقام ويشتغل الترتيب بالضغط على العمود
-            num_fmt = st.column_config.NumberColumn(format="%.2f")
             st.dataframe(
-                disp_df,
+                style_numbers(disp_df),
                 use_container_width=True,
                 hide_index=True,
-                column_config={c: num_fmt for c in
-                               ['Total_Sales_Val', 'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days']},
             )
     else:
         st.info("👋 يُرجى من الأدمن رفع ملف الشيت أولاً من لوحة التحكم ليتمكن باقي المستخدمين من استعراض البيانات.")
