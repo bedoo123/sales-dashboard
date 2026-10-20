@@ -70,7 +70,7 @@ def login_page():
                     margin-bottom: 20px;
                     text-align: center;
                 ">
-                    <h2 style="margin: 0 0 8px 0; padding: 0; font-size: 22px; font-weight: 600; color: inherit;">Welcome Back</h2>
+                    <h2 style="margin: 0 0 8px 0; padding: 0; font-size: 22px; font-weight: 600; color: inherit;">Welcome</h2>
                     <p style="margin: 0 0 6px 0; font-size: 13px; opacity: 0.7; color: inherit;">Sales & Distribution Dashboard</p>
                     <p style="margin: 0; font-size: 13px; opacity: 0.7; color: inherit;">Made by Commercial Excellence</p>
                 </div>
