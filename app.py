@@ -28,7 +28,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 SHARED_FILE = "shared_daily_sales.xlsx"
-FALLBACK_FILE = "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
 
 # قائمة المستخدمين والصلاحيات (افتراضية)
 # الأفضل تعريفهم في .streamlit/secrets.toml تحت [users.<name>] بدل كتابتهم في الكود
@@ -156,6 +155,30 @@ def push_to_github(content, uploader=""):
     except Exception as e:
         return False, str(e)
 
+def delete_from_github(deleter=""):
+    """يمسح الشيت من GitHub. بيرجّع (نجح؟، رسالة). لو الملف مش موجود أصلاً يعتبرها نجاح."""
+    cfg = github_cfg()
+    if cfg is None:
+        return True, ""
+    try:
+        url = _gh_url(cfg)
+        r = requests.get(url, headers=_gh_headers(cfg), params={"ref": cfg["branch"]}, timeout=30)
+        if r.status_code == 404:
+            return True, ""
+        if r.status_code != 200:
+            return False, f"GitHub error {r.status_code}"
+        payload = {
+            "message": f"Delete daily sales sheet (by {deleter or 'admin'})",
+            "sha": r.json().get("sha"),
+            "branch": cfg["branch"],
+        }
+        r = requests.delete(url, headers=_gh_headers(cfg), json=payload, timeout=60)
+        if r.status_code == 200:
+            return True, ""
+        return False, f"GitHub {r.status_code}: {r.json().get('message', '')}"
+    except Exception as e:
+        return False, str(e)
+
 @st.cache_resource(show_spinner="Restoring latest sheet...", ttl=300)
 def restore_shared_file():
     """لو الشيت مش موجود محلياً (بعد restart) بنسحبه من GitHub."""
@@ -167,7 +190,7 @@ def restore_shared_file():
     try:
         r = requests.get(_gh_url(cfg), headers=_gh_headers(cfg, raw=True),
                          params={"ref": cfg["branch"]}, timeout=120)
-        if r.status_code == 200:
+        if r.status_code == 200 and r.content:
             with open(SHARED_FILE, "wb") as f:
                 f.write(r.content)
             return "restored"
@@ -176,10 +199,7 @@ def restore_shared_file():
         return f"failed: {e}"
 
 def resolve_data_file():
-    for path in (SHARED_FILE, FALLBACK_FILE):
-        if os.path.exists(path):
-            return path
-    return None
+    return SHARED_FILE if os.path.exists(SHARED_FILE) else None
 
 # الـ mtime بيتبعت كـ argument عشان الكاش يتجدد أوتوماتيك لما الأدمن يرفع شيت جديد
 @st.cache_data(show_spinner=False)
@@ -310,26 +330,54 @@ else:
         getattr(st.sidebar, level)(text)
 
     if st.session_state.role == "admin":
-        uploaded_file = st.sidebar.file_uploader("Upload Excel File (Admin Only)", type=["xlsx", "xls"])
+        # تغيير الـ key بيفضّي الـ uploader بعد كل رفع/مسح (وبيمنع تكرار المعالجة)
+        uploader_n = st.session_state.get("uploader_n", 0)
+        uploaded_file = st.sidebar.file_uploader(
+            "Upload Excel File (Admin Only)", type=["xlsx", "xls"], key=f"uploader_{uploader_n}"
+        )
         if uploaded_file is not None:
-            # بنعالج الملف مرة واحدة بس، وإلا الـ rerun هيكرر نفسه للأبد
-            upload_sig = (uploaded_file.name, uploaded_file.size)
-            if st.session_state.get("last_upload") != upload_sig:
-                content = uploaded_file.getvalue()
-                with open(SHARED_FILE, "wb") as f:
-                    f.write(content)
-                st.session_state.last_upload = upload_sig
+            content = uploaded_file.getvalue()
+            with open(SHARED_FILE, "wb") as f:
+                f.write(content)
 
-                if github_cfg() is None:
-                    st.session_state.flash = ("warning", "تم الرفع، لكن التخزين مؤقت (GitHub مش مفعّل) وهيضيع عند أي restart.")
+            if github_cfg() is None:
+                st.session_state.flash = ("warning", "Sheet uploaded, but storage is temporary (GitHub is not configured) and will be lost on restart.")
+            else:
+                with st.spinner("Saving to GitHub..."):
+                    ok, msg = push_to_github(content, st.session_state.username)
+                if ok:
+                    st.session_state.flash = ("success", "Sheet uploaded and saved permanently.")
                 else:
-                    with st.spinner("جاري الحفظ على GitHub..."):
-                        ok, msg = push_to_github(content, st.session_state.username)
+                    st.session_state.flash = ("warning", f"Sheet uploaded temporarily, but saving to GitHub failed: {msg}")
+
+            restore_shared_file.clear()
+            st.cache_data.clear()
+            st.session_state.uploader_n = uploader_n + 1
+            st.rerun()
+
+        if target_file is not None:
+            if st.sidebar.button("🗑️ Delete current sheet", use_container_width=True):
+                st.session_state.confirm_delete = True
+
+            if st.session_state.get("confirm_delete"):
+                st.sidebar.warning("This will permanently delete the sheet for ALL users. Are you sure?")
+                col_yes, col_no = st.sidebar.columns(2)
+                if col_yes.button("Yes, delete", type="primary", use_container_width=True):
+                    with st.spinner("Deleting..."):
+                        ok, msg = delete_from_github(st.session_state.username)
                     if ok:
-                        st.session_state.flash = ("success", "تم رفع الشيت وحفظه بشكل دائم على GitHub!")
+                        if os.path.exists(SHARED_FILE):
+                            os.remove(SHARED_FILE)
+                        st.cache_data.clear()
+                        st.session_state.uploader_n = uploader_n + 1
+                        st.session_state.flash = ("success", "Sheet deleted.")
                     else:
-                        st.session_state.flash = ("warning", f"الشيت اترفع مؤقتاً بس فشل الحفظ على GitHub: {msg}")
-                st.rerun()
+                        st.session_state.flash = ("error", f"Could not delete from GitHub, nothing was removed: {msg}")
+                    st.session_state.confirm_delete = False
+                    st.rerun()
+                if col_no.button("Cancel", use_container_width=True):
+                    st.session_state.confirm_delete = False
+                    st.rerun()
     else:
         st.sidebar.info(f"👤 Line User: {st.session_state.assigned_line}")
 
