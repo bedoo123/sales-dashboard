@@ -434,7 +434,7 @@ def login_page():
             st.markdown(f"""
                 <div class="lg-head">
                     <div class="lg-badge">{badge}</div>
-                    <h2 class="lg-title">Welcome Back</h2>
+                    <h1 class="lg-title">Welcome</h1>
                     <p class="lg-sub">Sales &amp; Distribution Dashboard</p>
                     <span class="lg-chip">Made by Commercial Excellence</span>
                 </div>
