@@ -4,10 +4,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 import io
+import hmac
+import base64
+import openpyxl
+import requests
 
 st.set_page_config(
     page_title="Sales & Distribution Dashboard",
-    page_icon="📊",
+    page_icon="logo.png",
     layout="wide"
 )
 
@@ -23,8 +27,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# قائمة المستخدمين والصلاحيات
-USERS = {
+SHARED_FILE = "shared_daily_sales.xlsx"
+FALLBACK_FILE = "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
+
+# قائمة المستخدمين والصلاحيات (افتراضية)
+# الأفضل تعريفهم في .streamlit/secrets.toml تحت [users.<name>] بدل كتابتهم في الكود
+DEFAULT_USERS = {
     "admin": {"password": "admin", "role": "admin", "line": "All"},
     "chc1": {"password": "123", "role": "user", "line": "Mash CHC 1"},
     "chc2": {"password": "123", "role": "user", "line": "Mash CHC 2"},
@@ -47,11 +55,187 @@ USERS = {
     "medical": {"password": "123", "role": "user", "line": "Mash Medical Line -N"}
 }
 
+
+def load_users():
+    """يقرأ المستخدمين من st.secrets لو موجودين، وإلا يستخدم DEFAULT_USERS."""
+    try:
+        if "users" in st.secrets:
+            return {name: dict(cfg) for name, cfg in st.secrets["users"].items()}
+    except Exception:
+        pass
+    return DEFAULT_USERS
+
+USERS = load_users()
+
+def check_credentials(username, password):
+    user = USERS.get(username)
+    if user is None:
+        return None
+    # مقارنة آمنة ضد timing attacks
+    if hmac.compare_digest(str(user["password"]).encode("utf-8"), password.encode("utf-8")):
+        return user
+    return None
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
     st.session_state.role = ""
     st.session_state.assigned_line = ""
+
+# اسم العمود -> رقم العمود في الشيت
+NUMERIC_COLS = {
+    'Private_Sales_Qty': 3, 'Private_Sales_Val': 4,
+    'Private_Target_Qty': 5, 'Private_Target_Val': 6,
+    'Ibn Sina': 9, 'Pharma': 11, 'Ramco': 13, 'UCP': 15, 'MEC': 17,
+    'Sofico': 19, 'ETC': 21, 'Direct': 23, 'Stores': 25,
+    'Stock_Days': 42, 'Total_Stock_Qty': 45, 'Total_Stock_Val': 46,
+    'Tender_Sales_Qty': 58, 'Tender_Sales_Val': 59,
+    'Total_Sales_Qty': 60, 'Total_Sales_Val': 61,
+    'Total_Target_Qty': 62, 'Total_Target_Val': 63,
+}
+DIST_NAMES = ['Ibn Sina', 'Pharma', 'Ramco', 'UCP', 'MEC', 'Sofico', 'ETC', 'Direct', 'Stores']
+
+def format_currency(val):
+    if abs(val) >= 1_000_000:
+        return f"{val / 1_000_000:.2f}M EGP"
+    return f"{val:,.0f} EGP"
+
+# ---------- تخزين دائم للشيت على GitHub ----------
+# Streamlit Cloud بيمسح أي ملف مرفوع عند كل restart، فبنحفظ نسخة في repo خاص.
+# الإعداد من App settings > Secrets:
+#   [github]
+#   token  = "github_pat_..."     # Fine-grained token بصلاحية Contents: Read and write
+#   repo   = "owner/repo-name"    # الأفضل repo خاص منفصل للداتا (من غير redeploy)
+#   path   = "shared_daily_sales.xlsx"   # اختياري
+#   branch = "main"                      # اختياري
+def github_cfg():
+    try:
+        cfg = st.secrets["github"]
+        if cfg.get("token") and cfg.get("repo"):
+            return {
+                "token": cfg["token"],
+                "repo": cfg["repo"],
+                "path": cfg.get("path", SHARED_FILE),
+                "branch": cfg.get("branch", "main"),
+            }
+    except Exception:
+        pass
+    return None
+
+def _gh_url(cfg):
+    return f"https://api.github.com/repos/{cfg['repo']}/contents/{cfg['path']}"
+
+def _gh_headers(cfg, raw=False):
+    return {
+        "Authorization": f"Bearer {cfg['token']}",
+        "Accept": "application/vnd.github.raw+json" if raw else "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+def push_to_github(content, uploader=""):
+    """يرفع الشيت لـ GitHub. بيرجّع (نجح؟، رسالة)."""
+    cfg = github_cfg()
+    if cfg is None:
+        return False, "GitHub مش مفعّل في الـ Secrets"
+    try:
+        url = _gh_url(cfg)
+        r = requests.get(url, headers=_gh_headers(cfg), params={"ref": cfg["branch"]}, timeout=30)
+        if r.status_code not in (200, 404):
+            return False, f"GitHub رجّع خطأ {r.status_code}"
+        payload = {
+            "message": f"Update daily sales sheet (by {uploader or 'admin'})",
+            "content": base64.b64encode(content).decode("ascii"),
+            "branch": cfg["branch"],
+        }
+        if r.status_code == 200:
+            payload["sha"] = r.json().get("sha")
+        r = requests.put(url, headers=_gh_headers(cfg), json=payload, timeout=120)
+        if r.status_code in (200, 201):
+            return True, ""
+        return False, f"GitHub {r.status_code}: {r.json().get('message', '')}"
+    except Exception as e:
+        return False, str(e)
+
+@st.cache_resource(show_spinner="Restoring latest sheet...", ttl=300)
+def restore_shared_file():
+    """لو الشيت مش موجود محلياً (بعد restart) بنسحبه من GitHub."""
+    if os.path.exists(SHARED_FILE):
+        return "local"
+    cfg = github_cfg()
+    if cfg is None:
+        return "no-github"
+    try:
+        r = requests.get(_gh_url(cfg), headers=_gh_headers(cfg, raw=True),
+                         params={"ref": cfg["branch"]}, timeout=120)
+        if r.status_code == 200:
+            with open(SHARED_FILE, "wb") as f:
+                f.write(r.content)
+            return "restored"
+        return f"missing ({r.status_code})"
+    except Exception as e:
+        return f"failed: {e}"
+
+def resolve_data_file():
+    for path in (SHARED_FILE, FALLBACK_FILE):
+        if os.path.exists(path):
+            return path
+    return None
+
+# الـ mtime بيتبعت كـ argument عشان الكاش يتجدد أوتوماتيك لما الأدمن يرفع شيت جديد
+@st.cache_data(show_spinner=False)
+def load_raw_sheet(file_path, mtime):
+    return pd.read_excel(file_path, header=None)
+
+def get_sheet_date(file_path):
+    try:
+        raw = load_raw_sheet(file_path, os.path.getmtime(file_path))
+        value = raw.iloc[1, 2]
+        return value if pd.notna(value) else None
+    except Exception:
+        return None
+
+@st.cache_data(show_spinner="Loading data...")
+def load_and_clean_data(file_path, mtime):
+    raw_df = load_raw_sheet(file_path, mtime)
+    df = raw_df.iloc[4:].copy()
+
+    data = pd.DataFrame()
+    data['Cluster'] = df.iloc[:, 0].astype(str).str.strip()
+    data['Product_ID'] = df.iloc[:, 1]
+    data['Product_Name'] = df.iloc[:, 2].astype(str).str.strip()
+
+    # استبعاد الصفوف الفاضية وصفوف العناوين/الإجماليات
+    # (بالـ word boundary عشان منستبعدش منتجات اسمها فيه "sum" أو "nan" زي Sumatriptan)
+    name_lower = data['Product_Name'].str.lower()
+    is_junk = name_lower.isin(['', 'nan', 'none']) | name_lower.str.contains(
+        r"^crm product name|\btotal\b|subtotal|\bsum\b", regex=True
+    )
+    data = data[~is_junk]
+
+    for col_name, col_idx in NUMERIC_COLS.items():
+        data[col_name] = pd.to_numeric(df.iloc[:, col_idx], errors='coerce').fillna(0)
+
+    return data
+
+@st.cache_data(show_spinner=False)
+def build_line_workbook(file_path, mtime, line):
+    """يبني ملف Excel فيه خط واحد بس (بيتكاشي لكل خط)."""
+    wb = openpyxl.load_workbook(file_path)
+    ws = wb.active
+    total_label = line + ' Total'
+
+    rows_to_delete = []
+    for row in range(5, ws.max_row + 1):
+        val = ws.cell(row=row, column=1).value
+        if val is not None and str(val).strip() not in (line, total_label):
+            rows_to_delete.append(row)
+
+    for r in reversed(rows_to_delete):
+        ws.delete_rows(r)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
 
 def login_page():
     _, col2, _ = st.columns([1, 1.2, 1])
@@ -70,7 +254,7 @@ def login_page():
                     margin-bottom: 20px;
                     text-align: center;
                 ">
-                    <h2 style="margin: 0 0 8px 0; padding: 0; font-size: 22px; font-weight: 600; color: inherit;">Welcome</h2>
+                    <h2 style="margin: 0 0 8px 0; padding: 0; font-size: 22px; font-weight: 600; color: inherit;">Welcome Back</h2>
                     <p style="margin: 0 0 6px 0; font-size: 13px; opacity: 0.7; color: inherit;">Sales & Distribution Dashboard</p>
                     <p style="margin: 0; font-size: 13px; opacity: 0.7; color: inherit;">Made by Commercial Excellence</p>
                 </div>
@@ -82,12 +266,13 @@ def login_page():
             submit = st.form_submit_button("Sign In", use_container_width=True)
             
             if submit:
-                if username in USERS and USERS[username]["password"] == password:
+                username = username.strip().lower()
+                user = check_credentials(username, password)
+                if user:
                     st.session_state.logged_in = True
                     st.session_state.username = username
-                    st.session_state.role = USERS[username]["role"]
-                    st.session_state.assigned_line = USERS[username]["line"]
-                    st.success("تم تسجيل الدخول بنجاح!")
+                    st.session_state.role = user["role"]
+                    st.session_state.assigned_line = user["line"]
                     st.rerun()
                 else:
                     st.error("اسم المستخدم أو كلمة المرور غير صحيحة.")
@@ -101,119 +286,71 @@ else:
     st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.session_state.role = ""
+        st.session_state.assigned_line = ""
         st.rerun()
 
     st.title("📊 Sales & Distribution Executive Dashboard")
-    
-    # استخراج وعرض تاريخ الشيت المرفوع تلقائياً فى الصفحة الرئيسية أيضاً
-    try:
-        target_file_chk = "shared_daily_sales.xlsx" if os.path.exists("shared_daily_sales.xlsx") else "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
-        raw_meta = pd.read_excel(target_file_chk, header=None)
-        sheet_date = raw_meta.iloc[1, 2]
-        if pd.notna(sheet_date):
-            st.markdown(f"📅 **تاريخ الشيت المرفوع:** `{sheet_date}`")
-    except Exception:
-        pass
-        
+
+    restore_shared_file()
+    target_file = resolve_data_file()
+    sheet_date = get_sheet_date(target_file) if target_file else None
+    if sheet_date is not None:
+        st.markdown(f"📅 **تاريخ الشيت المرفوع:** `{sheet_date}`")
     st.markdown("---")
 
-    def format_currency(val):
-        if abs(val) >= 1_000_000:
-            return f"{val / 1_000_000:.2f}M EGP"
-        elif abs(val) >= 1_000:
-            return f"{val:,.0f} EGP"
-        else:
-            return f"{val:,.0f} EGP"
-
-    @st.cache_data
-    def load_and_clean_data(file_path):
-        raw_df = pd.read_excel(file_path, header=None)
-        df = raw_df.iloc[4:].copy()
-        
-        data = pd.DataFrame()
-        data['Cluster'] = df.iloc[:, 0].astype(str).str.strip()
-        data['Product_ID'] = df.iloc[:, 1]
-        data['Product_Name'] = df.iloc[:, 2].astype(str).str.strip()
-        
-        data = data[data['Product_Name'].notna()]
-        data = data[~data['Product_Name'].str.lower().str.contains("crm product name|total|sum|nan")]
-        
-        data['Private_Sales_Qty'] = pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
-        data['Private_Sales_Val'] = pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
-        data['Private_Target_Qty'] = pd.to_numeric(df.iloc[:, 5], errors='coerce').fillna(0)
-        data['Private_Target_Val'] = pd.to_numeric(df.iloc[:, 6], errors='coerce').fillna(0)
-        
-        data['Ibn Sina'] = pd.to_numeric(df.iloc[:, 9], errors='coerce').fillna(0)
-        data['Pharma'] = pd.to_numeric(df.iloc[:, 11], errors='coerce').fillna(0)
-        data['Ramco'] = pd.to_numeric(df.iloc[:, 13], errors='coerce').fillna(0)
-        data['UCP'] = pd.to_numeric(df.iloc[:, 15], errors='coerce').fillna(0)
-        data['MEC'] = pd.to_numeric(df.iloc[:, 17], errors='coerce').fillna(0)
-        data['Sofico'] = pd.to_numeric(df.iloc[:, 19], errors='coerce').fillna(0)
-        data['ETC'] = pd.to_numeric(df.iloc[:, 21], errors='coerce').fillna(0)
-        data['Direct'] = pd.to_numeric(df.iloc[:, 23], errors='coerce').fillna(0)
-        data['Stores'] = pd.to_numeric(df.iloc[:, 25], errors='coerce').fillna(0)
-        
-        data['Stock_Days'] = pd.to_numeric(df.iloc[:, 42], errors='coerce').fillna(0)
-        data['Total_Stock_Qty'] = pd.to_numeric(df.iloc[:, 45], errors='coerce').fillna(0)
-        data['Total_Stock_Val'] = pd.to_numeric(df.iloc[:, 46], errors='coerce').fillna(0)
-        
-        data['Tender_Sales_Qty'] = pd.to_numeric(df.iloc[:, 58], errors='coerce').fillna(0)
-        data['Tender_Sales_Val'] = pd.to_numeric(df.iloc[:, 59], errors='coerce').fillna(0)
-        data['Total_Sales_Qty'] = pd.to_numeric(df.iloc[:, 60], errors='coerce').fillna(0)
-        data['Total_Sales_Val'] = pd.to_numeric(df.iloc[:, 61], errors='coerce').fillna(0)
-        data['Total_Target_Qty'] = pd.to_numeric(df.iloc[:, 62], errors='coerce').fillna(0)
-        data['Total_Target_Val'] = pd.to_numeric(df.iloc[:, 63], errors='coerce').fillna(0)
-        
-        return data
-
     st.sidebar.header("📁 Control Panel")
-    
-    # عرض تاريخ الشيت المرفوع فى الـ Sidebar
-    target_file_check = "shared_daily_sales.xlsx" if os.path.exists("shared_daily_sales.xlsx") else "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
-    if os.path.exists(target_file_check):
-        try:
-            raw_meta = pd.read_excel(target_file_check, header=None)
-            sheet_date = raw_meta.iloc[1, 2]
-            if pd.notna(sheet_date):
-                st.sidebar.info(f"📅 تاريخ الشيت: {sheet_date}")
-        except Exception:
-            pass
+    if sheet_date is not None:
+        st.sidebar.info(f"📅 تاريخ الشيت: {sheet_date}")
 
-    saved_file_path = "shared_daily_sales.xlsx"
+    flash = st.session_state.pop("flash", None)
+    if flash:
+        level, text = flash
+        getattr(st.sidebar, level)(text)
 
     if st.session_state.role == "admin":
         uploaded_file = st.sidebar.file_uploader("Upload Excel File (Admin Only)", type=["xlsx", "xls"])
         if uploaded_file is not None:
-            with open(saved_file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            st.sidebar.success("تم رفع وحفظ الشيت بنجاح!")
-            st.rerun()
+            # بنعالج الملف مرة واحدة بس، وإلا الـ rerun هيكرر نفسه للأبد
+            upload_sig = (uploaded_file.name, uploaded_file.size)
+            if st.session_state.get("last_upload") != upload_sig:
+                content = uploaded_file.getvalue()
+                with open(SHARED_FILE, "wb") as f:
+                    f.write(content)
+                st.session_state.last_upload = upload_sig
+
+                if github_cfg() is None:
+                    st.session_state.flash = ("warning", "تم الرفع، لكن التخزين مؤقت (GitHub مش مفعّل) وهيضيع عند أي restart.")
+                else:
+                    with st.spinner("جاري الحفظ على GitHub..."):
+                        ok, msg = push_to_github(content, st.session_state.username)
+                    if ok:
+                        st.session_state.flash = ("success", "تم رفع الشيت وحفظه بشكل دائم على GitHub!")
+                    else:
+                        st.session_state.flash = ("warning", f"الشيت اترفع مؤقتاً بس فشل الحفظ على GitHub: {msg}")
+                st.rerun()
     else:
         st.sidebar.info(f"👤 Line User: {st.session_state.assigned_line}")
 
-    target_file = None
-    if os.path.exists(saved_file_path):
-        target_file = saved_file_path
-    elif os.path.exists("Daily Sales 19-10-2026- Mash GIT 1.xlsx"):
-        target_file = "Daily Sales 19-10-2026- Mash GIT 1.xlsx"
-
     if target_file is not None:
-        df = load_and_clean_data(target_file)
-        
+        file_mtime = os.path.getmtime(target_file)
+        df = load_and_clean_data(target_file, file_mtime)
+
         if st.session_state.role == "admin":
             st.sidebar.subheader("Filter Options (Admin)")
             selected_clusters = st.sidebar.multiselect(
-                "Select Cluster / Line:", 
-                options=df['Cluster'].unique(), 
+                "Select Cluster / Line:",
+                options=df['Cluster'].unique(),
                 default=df['Cluster'].unique()
             )
             filtered_df = df[df['Cluster'].isin(selected_clusters)]
-            
+
             st.sidebar.markdown("---")
-            with open(saved_file_path, "rb") as f:
+            with open(target_file, "rb") as f:
                 st.sidebar.download_button(
                     label="📥 تحميل الشيت الكامل (Admin)",
-                    data=f,
+                    data=f.read(),
                     file_name="Daily_Sales_All.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
@@ -222,33 +359,12 @@ else:
             assigned_line = st.session_state.assigned_line
             filtered_df = df[df['Cluster'] == assigned_line]
             st.sidebar.warning(f"Viewing Line: {assigned_line}")
-            
+
             if not filtered_df.empty:
                 st.sidebar.markdown("---")
-                buffer = io.BytesIO()
-                
-                import openpyxl
-                wb = openpyxl.load_workbook(target_file)
-                ws = wb.active
-                
-                total_label = assigned_line + ' Total'
-                rows_to_delete = []
-                for row in range(5, ws.max_row + 1):
-                    val = ws.cell(row=row, column=1).value
-                    if val is not None:
-                        val_str = str(val).strip()
-                        if val_str != assigned_line and val_str != total_label:
-                            rows_to_delete.append(row)
-                
-                for r in sorted(rows_to_delete, reverse=True):
-                    ws.delete_rows(r)
-                    
-                wb.save(buffer)
-                buffer.seek(0)
-                
                 st.sidebar.download_button(
                     label=f"📥 تحميل شيت {assigned_line}",
-                    data=buffer,
+                    data=build_line_workbook(target_file, file_mtime, assigned_line),
                     file_name=f"{assigned_line.replace(' ', '_')}_sales.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
@@ -325,7 +441,7 @@ else:
 
             st.subheader("🌟 Top Product for Each Distributor")
             
-            dist_names = ['Ibn Sina', 'Pharma', 'Ramco', 'UCP', 'MEC', 'Sofico', 'ETC', 'Direct', 'Stores']
+            dist_names = DIST_NAMES
             top_products_data = []
             
             for dist in dist_names:
@@ -394,8 +510,9 @@ else:
                     'Total_Sales_Val': 'sum',
                     'Total_Target_Val': 'sum'
                 }).reset_index()
-                cluster_acc['Dict_Ach'] = cluster_acc['Total_Sales_Val'] / cluster_acc['Total_Target_Val'] * 100
-                cluster_acc['Ach %'] = cluster_acc['Dict_Ach'].round(1)
+                # لو التارجت صفر منقسمش (كان بيطلع inf/NaN)
+                safe_target = cluster_acc['Total_Target_Val'].where(cluster_acc['Total_Target_Val'] > 0)
+                cluster_acc['Ach %'] = (cluster_acc['Total_Sales_Val'] / safe_target * 100).fillna(0).round(1)
                 
                 fig_cluster = px.bar(
                     cluster_acc,
@@ -472,7 +589,7 @@ else:
             st.subheader("📋 Product Sales Summary Table")
             search_q = st.text_input("🔍 Search product name:")
             if search_q:
-                table_dir = filtered_df[filtered_df['Product_Name'].str.contains(search_q, case=False, na=False)]
+                table_dir = filtered_df[filtered_df['Product_Name'].str.contains(search_q, case=False, na=False, regex=False)]
             else:
                 table_dir = filtered_df
 
@@ -481,10 +598,14 @@ else:
                 'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days'
             ]].copy().sort_values(by='Total_Sales_Val', ascending=False)
             
-            for col in ['Total_Sales_Val', 'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days']:
-                if col in disp_df.columns:
-                    disp_df[col] = disp_df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else "0.00")
-
-            st.dataframe(disp_df, use_container_width=True)
+            # التنسيق بـ column_config عشان الأعمدة تفضل أرقام ويشتغل الترتيب بالضغط على العمود
+            num_fmt = st.column_config.NumberColumn(format="%.2f")
+            st.dataframe(
+                disp_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={c: num_fmt for c in
+                               ['Total_Sales_Val', 'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days']},
+            )
     else:
         st.info("👋 يُرجى من الأدمن رفع ملف الشيت أولاً من لوحة التحكم ليتمكن باقي المستخدمين من استعراض البيانات.")
