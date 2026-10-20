@@ -14,8 +14,8 @@ st.set_page_config(
 st.markdown("""
     <style>
     div[data-testid="stMetric"] {
-        background-color: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: color-mix(in srgb, currentColor 5%, transparent);
+        border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
         padding: 15px;
         border-radius: 10px;
         border-left: 5px solid #007bff;
@@ -59,25 +59,27 @@ def login_page():
         st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
         
         with st.form("login_form"):
-            st.markdown('''
+            st.markdown("""
                 <div style="
-                    background: linear-gradient(135deg, #1a1a24 0%, #111118 100%);
-                    padding: 35px 30px;
+                    background: color-mix(in srgb, currentColor 5%, transparent);
+                    padding: 30px 24px;
                     border-radius: 16px;
-                    border: 1px solid rgba(211, 84, 0, 0.3);
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+                    border: 1px solid rgba(211, 84, 0, 0.35);
+                    border-top: 4px solid #d35400;
+                    box-shadow: 0 4px 16px color-mix(in srgb, currentColor 12%, transparent);
+                    margin-bottom: 20px;
+                    text-align: center;
                 ">
-                    <h2 style='color: #ffffff; text-align: center; font-size: 22px; margin-bottom: 5px; font-weight: 600;'>Welcome Back</h2>
-                    <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Sales & Distribution Dashboard</p>
-                    <p style='color: #a0a0a0; text-align: center; font-size: 13px; margin-bottom: 25px;'>Made by Commercial Excellence</p>
-            ''', unsafe_allow_html=True)
+                    <h2 style="margin: 0 0 8px 0; padding: 0; font-size: 22px; font-weight: 600; color: inherit;">Welcome Back</h2>
+                    <p style="margin: 0 0 6px 0; font-size: 13px; opacity: 0.7; color: inherit;">Sales & Distribution Dashboard</p>
+                    <p style="margin: 0; font-size: 13px; opacity: 0.7; color: inherit;">Made by Commercial Excellence</p>
+                </div>
+            """, unsafe_allow_html=True)
             
             username = st.text_input("👤 Username", placeholder="Enter your username")
             password = st.text_input("🔑 Password", type="password", placeholder="Enter your password")
             st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
             submit = st.form_submit_button("Sign In", use_container_width=True)
-            
-            st.markdown("</div>", unsafe_allow_html=True)
             
             if submit:
                 if username in USERS and USERS[username]["password"] == password:
@@ -101,7 +103,7 @@ else:
         st.session_state.logged_in = False
         st.rerun()
 
-    st.title("📊 Sales & Distribution Dashboard")
+    st.title("📊 Sales & Distribution Executive Dashboard")
     
     # استخراج وعرض تاريخ الشيت المرفوع تلقائياً فى الصفحة الرئيسية أيضاً
     try:
@@ -109,7 +111,7 @@ else:
         raw_meta = pd.read_excel(target_file_chk, header=None)
         sheet_date = raw_meta.iloc[1, 2]
         if pd.notna(sheet_date):
-            st.markdown(f"📅 **Date :** `{sheet_date}`")
+            st.markdown(f"📅 **تاريخ الشيت المرفوع:** `{sheet_date}`")
     except Exception:
         pass
         
@@ -173,7 +175,7 @@ else:
             raw_meta = pd.read_excel(target_file_check, header=None)
             sheet_date = raw_meta.iloc[1, 2]
             if pd.notna(sheet_date):
-                st.sidebar.info(f"📅 Date: {sheet_date}")
+                st.sidebar.info(f"📅 تاريخ الشيت: {sheet_date}")
         except Exception:
             pass
 
