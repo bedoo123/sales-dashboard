@@ -435,7 +435,7 @@ def login_page():
                 <div class="lg-head">
                     <div class="lg-badge">{badge}</div>
                     <h1 class="lg-title">&nbsp;Welcome</h1>
-                    <p class="lg-sub">Sales Dashboard</p>
+                    <p class="lg-sub">Sales &amp; Distribution Dashboard</p>
                     <span class="lg-chip">Commercial Excellence</span>
                 </div>
             """, unsafe_allow_html=True)
