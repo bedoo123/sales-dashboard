@@ -463,7 +463,7 @@ else:
     # Sidebar Logo & User Info
     if os.path.exists("logo.png"):
         st.sidebar.image("logo.png", width=140)
-    st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
+    st.sidebar.title(f"👤 Welcome: {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
         st.session_state.username = ""
@@ -480,7 +480,7 @@ else:
         st.markdown(f"📅 **Date:** `{sheet_date}`")
     st.markdown("---")
 
-    st.sidebar.header("📁 Control Panel")
+    st.sidebar.header("📁 Files")
     if sheet_date is not None:
         st.sidebar.info(f"📅 Date: {sheet_date}")
 
