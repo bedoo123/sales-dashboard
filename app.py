@@ -24,6 +24,8 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #007bff;
     }
+    div[data-testid="stMetricValue"] { font-size: clamp(1.15rem, 1.5vw, 2rem); }
+    div[data-testid="stMetricValue"] > div { overflow: visible; text-overflow: clip; white-space: nowrap; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -206,6 +208,8 @@ def style_numbers(frame):
     for c in frame.columns:
         if c in MONEY_COLS or c.endswith('_Qty'):
             fmt[c] = "{:,.0f}"
+        elif c == 'Ach %':
+            fmt[c] = "{:,.1f}%"
         elif c == 'Stock_Days':
             fmt[c] = "{:,.1f}"
     return frame.style.format(fmt, na_rep="-")
@@ -603,50 +607,6 @@ else:
             st.progress(min(max(int(total_ach), 0), 100), text=f"Overall Target Achievement: {total_ach:.1f}%")
             st.markdown("---")
 
-            st.subheader("⚠️ Products Without Target (Zero Target Analysis)")
-            no_target_df = filtered_df[filtered_df['Total_Target_Val'] == 0]
-            
-            if not no_target_df.empty:
-                no_target_with_sales = no_target_df[no_target_df['Total_Sales_Val'] != 0]
-                no_target_no_sales = no_target_df[no_target_df['Total_Sales_Val'] == 0]
-                
-                nt_col1, nt_col2 = st.columns(2)
-                
-                with nt_col1:
-                    st.markdown(f"##### 🟢 No Target BUT Has Sales ({len(no_target_with_sales)} SKUs)")
-                    if not no_target_with_sales.empty:
-                        fig_nt_sales = px.bar(
-                            no_target_with_sales.nlargest(10, 'Total_Sales_Val'),
-                            x='Total_Sales_Val',
-                            y='Product_Name',
-                            orientation='h',
-                            title="Top 10 Zero-Target Products by Sales",
-                            text_auto=',.0f',
-                            color_discrete_sequence=['#2ecc71']
-                        )
-                        fig_nt_sales.update_layout(yaxis={'categoryorder':'total ascending'})
-                        st.plotly_chart(fig_nt_sales, use_container_width=True)
-                    else:
-                        st.info("No sales recorded for any zero-target product.")
-
-                with nt_col2:
-                    st.markdown(f"##### 🔴 No Target AND No Sales ({len(no_target_no_sales)} SKUs)")
-                    st.dataframe(
-                        style_numbers(no_target_no_sales[['Cluster', 'Product_Name', 'Total_Stock_Qty', 'Stock_Days']]),
-                        use_container_width=True,
-                        height=300
-                    )
-
-                with st.expander("📄 View All Products Without Target"):
-                    st.dataframe(
-                        style_numbers(no_target_df[['Cluster', 'Product_ID', 'Product_Name', 'Total_Sales_Val', 'Total_Stock_Qty', 'Stock_Days']].sort_values(by='Total_Sales_Val', ascending=False)),
-                        use_container_width=True
-                    )
-            else:
-                st.success("🎉 All selected products have an assigned target!")
-
-            st.markdown("---")
-
             st.subheader("🌟 Top Product for Each Distributor")
             
             dist_names = DIST_NAMES
@@ -680,13 +640,16 @@ else:
                         color='Sales Value (EGP)',
                         color_continuous_scale='Blues'
                     )
-                    fig_top_dist.update_traces(textposition='inside', texttemplate='%{text}: %{x:,.0f} EGP')
+                    fig_top_dist.update_coloraxes(showscale=False)
+                    fig_top_dist.update_xaxes(range=[0, top_dist_df['Sales Value (EGP)'].max() * 1.6])
+                    fig_top_dist.update_traces(textposition='auto', texttemplate='%{text}: %{x:,.0f} EGP', cliponaxis=False)
                     fig_top_dist.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False)
                     st.plotly_chart(fig_top_dist, use_container_width=True)
                     
                 with col_dist_selector:
                     st.markdown("##### 🔍 Deep Dive by Distributor")
-                    selected_dist = st.selectbox("Choose a Distributor:", dist_names)
+                    active_dists = [d for d in dist_names if filtered_df[d].sum() > 0]
+                    selected_dist = st.selectbox("Choose a Distributor:", active_dists)
                     
                     top_5_dist = filtered_df.nlargest(5, selected_dist)[['Product_Name', selected_dist]]
                     top_5_dist = top_5_dist[top_5_dist[selected_dist] > 0]
@@ -699,7 +662,8 @@ else:
                             orientation='h',
                             title=f"Top 5 Products in {selected_dist}",
                             text_auto=',.0f',
-                            color_discrete_sequence=['#2ecc71']
+                            color_discrete_sequence=['#2ecc71'],
+                            labels={selected_dist: 'Sales Value (EGP)', 'Product_Name': 'Product'}
                         )
                         fig_dist_deep.update_layout(yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(fig_dist_deep, use_container_width=True)
@@ -722,9 +686,10 @@ else:
                 safe_target = cluster_acc['Total_Target_Val'].where(cluster_acc['Total_Target_Val'] > 0)
                 cluster_acc['Ach %'] = (cluster_acc['Total_Sales_Val'] / safe_target * 100).round(1)
                 cluster_acc['Label'] = cluster_acc['Ach %'].map(
-                    lambda v: 'No target' if pd.isna(v) else f'Ach: {v:.1f}%'
+                    lambda v: 'No target' if pd.isna(v) else f'{v:.1f}%'
                 )
                 cluster_acc['Ach_color'] = cluster_acc['Ach %'].fillna(0)
+                cluster_acc = cluster_acc.sort_values('Total_Sales_Val', ascending=False)
 
                 fig_cluster = px.bar(
                     cluster_acc,
@@ -733,10 +698,12 @@ else:
                     text='Label',
                     title="Sales by Cluster (Label shows Achievement %)",
                     color='Ach_color',
-                    color_continuous_scale='Greens',
+                    color_continuous_scale='RdYlGn',
                     labels={'Total_Sales_Val': 'Sales Value (EGP)', 'Ach_color': 'Ach %'}
                 )
-                fig_cluster.update_traces(textposition='outside')
+                fig_cluster.update_traces(textposition='outside', textangle=-90, textfont_size=11, cliponaxis=False)
+                fig_cluster.update_xaxes(tickangle=-40, title=None)
+                fig_cluster.update_layout(height=500, margin=dict(b=40, t=70), uniformtext_minsize=10, uniformtext_mode='show')
                 st.plotly_chart(fig_cluster, use_container_width=True)
 
             with c2:
@@ -779,7 +746,8 @@ else:
                         orientation='h',
                         title="Top 10 Products (Sales Value)",
                         text_auto=',.0f',
-                        color_discrete_sequence=['#3498db']
+                        color_discrete_sequence=['#3498db'],
+                        labels={'Total_Sales_Val': 'Sales Value (EGP)', 'Product_Name': 'Product'}
                     )
                     fig_top10.update_layout(yaxis={'categoryorder':'total ascending'})
                     st.plotly_chart(fig_top10, use_container_width=True)
@@ -797,7 +765,7 @@ else:
                         title="Top 10 Target Gap (Target − Sales)",
                         text_auto=',.0f',
                         color_discrete_sequence=['#e74c3c'],
-                        labels={'Target_Gap': 'Gap to Target (EGP)'}
+                        labels={'Target_Gap': 'Gap to Target (EGP)', 'Product_Name': 'Product'}
                     )
                     fig_gap.update_layout(yaxis={'categoryorder': 'total ascending'})
                     st.plotly_chart(fig_gap, use_container_width=True)
@@ -815,11 +783,27 @@ else:
                 'Cluster', 'Product_Name', 'Total_Sales_Val', 
                 'Total_Target_Val', 'Private_Sales_Val', 'Tender_Sales_Val', 'Stock_Days'
             ]].copy().sort_values(by='Total_Sales_Val', ascending=False)
+            safe_tgt = disp_df['Total_Target_Val'].where(disp_df['Total_Target_Val'] > 0)
+            disp_df.insert(4, 'Ach %', disp_df['Total_Sales_Val'] / safe_tgt * 100)
             
             st.dataframe(
                 style_numbers(disp_df),
                 use_container_width=True,
                 hide_index=True,
+                column_config={
+                    'Product_Name': st.column_config.Column("Product"),
+                    'Total_Sales_Val': st.column_config.Column("Sales (EGP)"),
+                    'Total_Target_Val': st.column_config.Column("Target (EGP)"),
+                    'Private_Sales_Val': st.column_config.Column("Private Sales"),
+                    'Tender_Sales_Val': st.column_config.Column("Tender Sales"),
+                    'Stock_Days': st.column_config.Column("Stock Days"),
+                },
+            )
+            st.download_button(
+                "📥 Download table (CSV)",
+                data=disp_df.to_csv(index=False).encode("utf-8-sig"),
+                file_name="products_summary.csv",
+                mime="text/csv",
             )
     else:
         st.info("👋 يُرجى من الأدمن رفع ملف الشيت أولاً من لوحة التحكم ليتمكن باقي المستخدمين من استعراض البيانات.")
