@@ -214,6 +214,13 @@ def style_numbers(frame):
             fmt[c] = "{:,.1f}"
     return frame.style.format(fmt, na_rep="-")
 
+def ach_pct(sales, target):
+    """نسبة الإنجاز، أو None لو مفيش تارجت."""
+    return (sales / target * 100) if target and target > 0 else None
+
+def fmt_ach(v):
+    return "N/A" if v is None or pd.isna(v) else f"{v:.1f}%"
+
 def resolve_data_file():
     return SHARED_FILE if os.path.exists(SHARED_FILE) else None
 
@@ -730,6 +737,86 @@ else:
                     left_out = {d: filtered_df[d].sum() for d in dist_names if filtered_df[d].sum() < 0}
                     if left_out:
                         st.caption("Not shown (net returns): " + ", ".join(f"{d} ({v:,.0f} EGP)" for d, v in left_out.items()))
+
+            st.markdown("---")
+
+            st.subheader("🔎 Product Details")
+            prod_df = filtered_df.sort_values(['Product_Name', 'Cluster']).copy()
+            prod_df['Option'] = prod_df['Product_Name'] + "  —  " + prod_df['Cluster']
+            selected_option = st.selectbox(
+                "Select a product (type to search):",
+                prod_df['Option'].tolist(),
+                index=None,
+                placeholder="Choose a product to see its full details...",
+            )
+
+            if selected_option:
+                p = prod_df[prod_df['Option'] == selected_option].iloc[0]
+                st.markdown(f"**{p['Product_Name']}**  ·  {p['Cluster']}  ·  ID `{p['Product_ID']}`")
+
+                p_sales, p_target = p['Total_Sales_Val'], p['Total_Target_Val']
+                p_ach = ach_pct(p_sales, p_target)
+
+                d1, d2, d3, d4 = st.columns(4)
+                d1.metric("Total Sales", format_currency(p_sales))
+                d2.metric("Target", format_currency(p_target))
+                d3.metric("Achievement %", fmt_ach(p_ach))
+                d4.metric("Gap to Target", format_currency(p_target - p_sales) if p_target > 0 else "N/A")
+
+                if p_ach is not None:
+                    st.progress(min(max(int(p_ach), 0), 100), text=f"Target Achievement: {p_ach:.1f}%")
+                else:
+                    st.info("No target is assigned to this product.")
+
+                left, right = st.columns([3, 2])
+
+                with left:
+                    st.markdown("##### Sales vs Target by Channel")
+                    nan = float('nan')
+                    channels = pd.DataFrame([
+                        ['Private', p['Private_Sales_Qty'], p['Private_Sales_Val'], p['Private_Target_Qty'], p['Private_Target_Val']],
+                        ['Tender', p['Tender_Sales_Qty'], p['Tender_Sales_Val'], nan, nan],
+                        ['Total', p['Total_Sales_Qty'], p['Total_Sales_Val'], p['Total_Target_Qty'], p['Total_Target_Val']],
+                    ], columns=['Channel', 'Sales Qty', 'Sales (EGP)', 'Target Qty', 'Target (EGP)']).set_index('Channel')
+                    channels['Ach %'] = [ach_pct(v, t) if pd.notna(t) else None
+                                         for v, t in zip(channels['Sales (EGP)'], channels['Target (EGP)'])]
+                    channels['Ach %'] = pd.to_numeric(channels['Ach %'])
+                    st.dataframe(
+                        channels.style.format({
+                            'Sales Qty': "{:,.0f}", 'Sales (EGP)': "{:,.0f}",
+                            'Target Qty': "{:,.0f}", 'Target (EGP)': "{:,.0f}", 'Ach %': "{:,.1f}%",
+                        }, na_rep="-"),
+                        use_container_width=True,
+                    )
+                    st.caption("Tender has no separate target: the sheet counts tender sales as its own target, "
+                               "so it is included in the Total target but not shown on its own.")
+
+                    st.markdown("##### Stock")
+                    s1, s2, s3 = st.columns(3)
+                    s1.metric("Stock Qty", f"{p['Total_Stock_Qty']:,.0f}")
+                    s2.metric("Stock Value (ex-Badr)", format_currency(p['Stock_Val_ex_Badr']))
+                    s3.metric("Stock Days", "N/A" if pd.isna(p['Stock_Days']) else f"{p['Stock_Days']:,.1f}")
+
+                with right:
+                    dist_vals = pd.DataFrame({
+                        'Distributor': DIST_NAMES,
+                        'Sales (EGP)': [p[d] for d in DIST_NAMES],
+                    })
+                    dist_vals = dist_vals[dist_vals['Sales (EGP)'] != 0]
+                    if not dist_vals.empty:
+                        fig_pd = px.bar(
+                            dist_vals,
+                            x='Sales (EGP)',
+                            y='Distributor',
+                            orientation='h',
+                            title="Private Sales by Distributor",
+                            text_auto=',.0f',
+                            color_discrete_sequence=['#3498db'],
+                        )
+                        fig_pd.update_layout(yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig_pd, use_container_width=True)
+                    else:
+                        st.info("No distributor sales recorded for this product.")
 
             st.markdown("---")
 
