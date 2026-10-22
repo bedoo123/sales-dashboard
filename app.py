@@ -733,45 +733,6 @@ else:
 
             st.markdown("---")
 
-            st.subheader("🏆 Top Products & Biggest Target Gaps")
-            p1, p2 = st.columns(2)
-            
-            with p1:
-                top10_overall = filtered_df.nlargest(10, 'Total_Sales_Val')
-                if not top10_overall.empty:
-                    fig_top10 = px.bar(
-                        top10_overall,
-                        x='Total_Sales_Val',
-                        y='Product_Name',
-                        orientation='h',
-                        title="Top 10 Products (Sales Value)",
-                        text_auto=',.0f',
-                        color_discrete_sequence=['#3498db'],
-                        labels={'Total_Sales_Val': 'Sales Value (EGP)', 'Product_Name': 'Product'}
-                    )
-                    fig_top10.update_layout(yaxis={'categoryorder':'total ascending'})
-                    st.plotly_chart(fig_top10, use_container_width=True)
-
-            with p2:
-                gap_df = filtered_df[filtered_df['Total_Target_Val'] > 0].copy()
-                gap_df['Target_Gap'] = gap_df['Total_Target_Val'] - gap_df['Total_Sales_Val']
-                top_gap = gap_df[gap_df['Target_Gap'] > 0].nlargest(10, 'Target_Gap')
-                if not top_gap.empty:
-                    fig_gap = px.bar(
-                        top_gap,
-                        x='Target_Gap',
-                        y='Product_Name',
-                        orientation='h',
-                        title="Top 10 Target Gap (Target − Sales)",
-                        text_auto=',.0f',
-                        color_discrete_sequence=['#e74c3c'],
-                        labels={'Target_Gap': 'Gap to Target (EGP)', 'Product_Name': 'Product'}
-                    )
-                    fig_gap.update_layout(yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig_gap, use_container_width=True)
-
-            st.markdown("---")
-
             st.subheader("📋 Product Sales Summary Table")
             search_q = st.text_input("🔍 Search product name:")
             if search_q:
